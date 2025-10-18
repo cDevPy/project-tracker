@@ -1,7 +1,5 @@
 Contributing to Project Tracker
 
-Thank you for considering contributing to this project! We’re excited to work with you.
-
 ##### Branching Strategy #####
 
 We use a simplified GitFlow model:
