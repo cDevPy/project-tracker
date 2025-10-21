@@ -18,7 +18,7 @@ We use a simplified GitFlow model:
    git checkout -b feature/your-feature-name
 3. *Make your changes.*
 
-4. *Write an easy to understand commit messages:*
+4. *Write easy to understand commit messages:*
 git commit -m "Add user registration form"
 
 6. *Push to GitHub:*
