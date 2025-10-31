@@ -1,0 +1,9 @@
+{% extends 'base.html' %} {% block content %}
+<h2 class="justify-content-center">Sign Up</h2>
+<div class="form-container justify-content-center">
+    <form method="POST" class="flex-form">
+        {% csrf_token %} {{ template_data.form.as_div }}
+        <button type="submit" class="auth-btn text-white">Sign Up</button>
+    </form>
+</div>
+{% endblock content %}

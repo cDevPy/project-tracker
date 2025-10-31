@@ -10,16 +10,20 @@
     <nav>
         <h1>PROJECT TRACKER</h1>
         <ul>
-            <li><a href="#">Home</a></li>
+            <li><a href="{% url 'home.landing' %}">Home</a></li>
             <li><a href="#">About</a></li>
-            <li><a class="signIn" href="#">Sign In</a></li>
+            {% if user.is_authenticated %}
+            <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
+            {% else %}
+            <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
+            {% endif %}
         </ul>
     </nav>
     <main>
         <div class="left">
             <h1>Project Tracker</h1>
             <p>Manage your projects and tasks efficiently</p>
-            <a href="#">Get Started</a>
+            <a href="{% url 'accounts.access' %}">Get Started</a>
         </div>
         <div class="right">
             <nav>

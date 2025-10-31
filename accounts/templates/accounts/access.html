@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<h2 class="justify-content-center">ACCESS ACCOUNT</h2>
+<div class="link-container justify-content-center">
+    <a href="{% url 'accounts.signup' %}" class="signup auth-btn">Sign Up</a>
+    <a href="{% url 'accounts.login' %}" class="login auth-btn">Login</a>
+</div>
+<div class="display-pics">
+    <img src="{% static 'image/project-tracker01.png' %}" alt="PROJECT TRACKER" class="access-image1 justify-content-center w-300"/>
+    <img src="{% static 'image/project-tracker02.jpg' %}" alt="PROJECT TRACKER" class="access-image2 justify-content-center w-300"/>
+</div>
+{% endblock content %}
