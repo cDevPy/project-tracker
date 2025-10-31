@@ -4,5 +4,5 @@ from django.shortcuts import render
 
 def landing(request):
     template_data = {}
-    template_data['title'] = 'Project Tracker'
+    template_data['title'] = 'Get Started | Project Tracker'
     return render(request, 'home/landing_page.html', {'template_data': template_data})
