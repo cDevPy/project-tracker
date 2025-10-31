@@ -1,0 +1,157 @@
+body {
+    /* color: #000038; */
+    color: #102634;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+body a {
+    text-decoration: none;
+}
+body ul {
+    list-style: none;
+}
+nav {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 15px 60px;
+}
+nav > h1 {
+    font-size: 23px;
+}
+nav > ul {
+    display: flex;
+    flex-direction: row;
+    gap: 40px;
+}
+nav > ul > li > a {
+    padding: 7px 20px;
+    border-radius: 8px;
+}
+nav > ul > li > a:hover,
+nav > ul > li > a.signIn:hover {
+    background: #80808088;
+    color: white;
+}
+nav a {
+    color: #000038;
+    font-weight: 550;
+    font-size: 14px;
+}
+nav > ul > li > a.signIn {
+    background: #c1e5faa4;
+    background: #cee0f8;
+}
+main > .div {
+    width: 120px;
+    height: 120px;
+    background-color: #000038;
+}
+main .display-pics {
+    position: relative;
+    bottom: -50px;
+    justify-self: center;
+    /* align-self: center; */
+}
+.display-pics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    background: #ccc;
+    width: 620px;
+    padding: 20px;
+    border-radius: 12px;
+}
+.justify-content-center {
+    justify-self: center;
+}
+.w-300 {
+    width: 300px;
+}
+.access-image1,
+.access-image2 {
+    height: 200px;
+}
+.link-container a {
+    padding: 12px 40px;
+}
+/* Container */
+.form-container {
+    max-width: 500px;
+    margin: 60px auto;
+    padding: 40px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid #eee;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Flex form layout */
+.flex-form {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* Django as_div output - each field wrapper */
+.flex-form > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+/* Label */
+.flex-form label {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    color: #102634;
+}
+
+/* Input */
+.form-input {
+    flex: 2;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 15px;
+    transition: all 0.3s ease;
+}
+
+/* Input focus effect */
+.form-input:focus {
+    border-color: #6a0dad;
+    outline: none;
+    box-shadow: 0 0 6px rgba(106, 13, 173, 0.3);
+}
+
+/* Button */
+.auth-btn {
+    background: linear-gradient(135deg, #6a0dad, #da44da);
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.auth-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(106, 13, 173, 0.3);
+}
+
+@media (max-width: 600px) {
+    .flex-form > div {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .flex-form label {
+        margin-bottom: 6px;
+    }
+}

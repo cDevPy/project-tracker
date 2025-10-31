@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% load static %}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{template_data.title}}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  </head>
+  <body>
+    <nav>
+      <h1>PROJECT TRACKER</h1>
+      <ul>
+        <li><a href="{% url 'home.landing' %}">Home</a></li>
+        <li><a href="#">About</a></li>
+        {% if user.is_authenticated %}
+        <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
+        {% else %}
+        <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
+        {% endif %}
+      </ul>
+    </nav>
+    <main>
+        {% block content %} {% endblock content %}
+    </main>
+  </body>
+</html>
