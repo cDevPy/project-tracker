@@ -1,0 +1,194 @@
+<!--
+Planova — Dashboard
+Includes responsive dashboard sections: Quick Actions, Overview Widgets, Kanban Preview,
+Calendar Preview, Assigned Tasks, Recent Activity.
+Features 4 & 6 integrated: Active sidebar item & header button interactions.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Planova — Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+ <link rel="stylesheet" href="dashboard.css">
+ <script defer src="./dashboard.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <header class="header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Open menu"><i class="fa fa-bars"></i></button>
+        <div class="brand">
+          <img class="site-logo" src="./logo.png" alt="logo">
+          <h1>Planova</h1>
+        </div>
+      </div>
+
+      <div class="search-container">
+        <button class="search-toggle" id="searchToggle" aria-label="Search"><i class="fa fa-search"></i></button>
+        <input class="search-bar" type="text" placeholder="Search projects, tasks, people..." aria-label="Search">
+      </div>
+
+      <nav>
+        <button class="create-btn" id="createBtn">+ Create</button>
+
+        <div class="icon-wrapper">
+          <button class="icon-btn" aria-haspopup="true" id="notificationBtn">
+            <i class="fa-regular fa-bell"></i>
+            <span class="tooltip">Notifications</span>
+            <span class="notif-badge" id="notifBadge">0</span>
+          </button>
+        </div>
+
+        <!-- Account Dropdown -->
+        <div class="icon-wrapper account-wrapper">
+          <button class="icon-btn" aria-haspopup="true" id="accountBtn">
+            <i class="fa-regular fa-user"></i>
+            <span class="tooltip">Account</span>
+          </button>
+          <ul class="dropdown-menu" id="accountMenu">
+            <li><i class="fa fa-user"></i> Profile</li>
+            <li><i class="fa fa-gear"></i> Settings</li>
+            <li><i class="fa fa-bell"></i> Notifications</li>
+            <li><i class="fa fa-credit-card"></i> Billing</li>
+            <li><i class="fa fa-users"></i> Team</li>
+            <li><i class="fa fa-moon"></i> Appearance</li>
+            <li><i class="fa fa-circle-question"></i> Help & Support</li>
+            <li><i class="fa fa-sign-out"></i> Logout</li>
+          </ul>
+        </div>
+        <!-- End Account Dropdown -->
+      </nav>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="aside" id="sidebar">
+      <ul>
+        <li><i class="fa-solid fa-chart-line"></i> Overview</li>
+        <li><i class="fa-solid fa-list-check"></i> Tasks</li>
+        <li><i class="fa-solid fa-users"></i> Teams</li>
+        <li><i class="fa-solid fa-calendar-days"></i> Calendar</li>
+        <li><i class="fa-solid fa-chart-pie"></i> Reports</li>
+        <li><i class="fa-solid fa-folder"></i> Files</li>
+        <li><i class="fa-solid fa-gear"></i> Settings</li>
+      </ul>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main" id="mainContent">
+      <!-- Welcome + quick actions -->
+      <div class="welcome-row">
+        <div class="title">
+          <h2>Welcome back, Peter</h2>
+          <div class="muted">Today • <strong id="todayLabel"></strong></div>
+        </div>
+
+        <div class="quick-actions" aria-label="Quick actions">
+          <button class="qa-btn" id="newTaskBtn"><i class="fa fa-plus" style="margin-right:8px"></i>New Task</button>
+          <button class="qa-btn" id="newProjectBtn"><i class="fa fa-briefcase" style="margin-right:8px"></i>New Project</button>
+          <button class="qa-btn" id="inviteBtn"><i class="fa fa-user-plus" style="margin-right:8px"></i>Invite</button>
+        </div>
+      </div>
+
+      <div class="main-inner">
+        <div>
+          <section class="overview-widgets" aria-label="Overview">
+            <div class="widget-card">
+              <h3 id="activeProjectsCount">6</h3>
+              <p>Active Projects</p>
+            </div>
+            <div class="widget-card">
+              <h3 id="tasksDueCount">24</h3>
+              <p>Tasks Due</p>
+            </div>
+            <div class="widget-card">
+              <h3 id="overdueCount">3</h3>
+              <p>Overdue Items</p>
+            </div>
+            <div class="widget-card">
+              <h3 id="teamCount">12</h3>
+              <p>Team Members</p>
+            </div>
+          </section>
+
+          <section class="kanban-preview" aria-label="Kanban preview">
+            <h3>Project Board</h3>
+            <div class="kanban-board" id="kanbanBoard" role="list">
+              <div class="kanban-column" data-column="todo" aria-label="To Do column">
+                <h4>To Do</h4>
+                <div class="kanban-task" role="listitem">Design Homepage</div>
+                <div class="kanban-task" role="listitem">Write Docs</div>
+              </div>
+              <div class="kanban-column" data-column="inprogress" aria-label="In progress column">
+                <h4>In Progress</h4>
+                <div class="kanban-task" role="listitem">API Integration</div>
+              </div>
+              <div class="kanban-column" data-column="review" aria-label="Review column">
+                <h4>Review</h4>
+                <div class="kanban-task" role="listitem">Dashboard UI</div>
+              </div>
+              <div class="kanban-column" data-column="done" aria-label="Done column">
+                <div class="kanban-task complete" role="listitem">Login Page</div>
+                <div class="kanban-task complete" role="listitem">Backend Setup</div>
+              </div>
+            </div>
+            <div style="margin-top:8px;">
+              <a href="#" class="btn-link" id="openBoard">Open full board</a>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="Calendar preview">
+            <h3>Calendar (Preview)</h3>
+            <div class="calendar-grid" id="calendarGrid" aria-hidden="false">
+              <div class="calendar-cell">Sun<br><small class="muted">—</small></div>
+              <div class="calendar-cell">Mon<br><small class="muted">Sprint planning</small></div>
+              <div class="calendar-cell">Tue<br><small class="muted">Release</small></div>
+              <div class="calendar-cell">Wed<br><small class="muted">Design review</small></div>
+              <div class="calendar-cell">Thu<br><small class="muted">Client call</small></div>
+              <div class="calendar-cell">Fri<br><small class="muted">Deploy</small></div>
+              <div class="calendar-cell">Sat<br><small class="muted">—</small></div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="right-rail" aria-label="Right rail">
+          <div class="panel assigned-tasks" aria-live="polite">
+            <h3>Your Tasks</h3>
+            <ul>
+              <li>Review API endpoints — <span class="muted">due today</span></li>
+              <li>Submit project draft — <span class="muted">in 2 days</span></li>
+              <li>Meet UI team — <span class="muted">tomorrow</span></li>
+            </ul>
+            <a href="#" class="btn-link">View all tasks</a>
+          </div>
+
+          <div class="panel activity-feed">
+            <h3>Recent Activity</h3>
+            <ul>
+              <li><strong>John</strong> completed <em>Login Page</em> — <span class="muted">1 hour ago</span></li>
+              <li><strong>Sarah</strong> commented on <em>API Integration</em> — <span class="muted">3 hours ago</span></li>
+              <li><strong>Mike</strong> started <em>Frontend Setup</em> — <span class="muted">yesterday</span></li>
+            </ul>
+            <a href="#" class="btn-link">View activity log</a>
+          </div>
+
+          <div class="panel" aria-hidden="true">
+            <h3>Mini Stats</h3>
+            <p class="muted">Progress: <strong>72%</strong></p>
+            <p class="muted">Open issues: <strong>5</strong></p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <p>&copy; 2025 Planova. All rights reserved.</p>
+    </footer>
+  </div> 
+</body>
+</html>
+
