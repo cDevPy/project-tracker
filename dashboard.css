@@ -1,0 +1,380 @@
+
+    /* ---------- Reset & base ---------- */
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      background:#000;
+      color:#fff;
+      font-family:'Poppins',system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      overflow:hidden;
+    }
+
+    /* ---------- page grid ---------- */
+    .container{
+      display:grid;
+      grid-template-columns:250px 1fr;
+      grid-template-rows:60px 1fr 60px;
+      grid-template-areas:
+        "header header"
+        "sidebar main"
+        "footer footer";
+      height:100vh;
+      overflow:hidden;
+    }
+
+    /* ---------- Header ---------- */
+    .header{
+      grid-area:header;
+      position:fixed;top:0;left:0;right:0;height:60px;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 20px;
+      background:rgba(0,0,0,0.85);
+      border-bottom:1px solid #222;
+      z-index:1200;
+    }
+
+    .brand{display:flex;align-items:center;gap:12px}
+    .site-logo{width:38px;height:36px;border-radius:8px;object-fit:cover;background:#111}
+    .brand h1{
+      font-family:Montserrat,serif;
+      font-size:20px;
+      font-weight:700;
+      letter-spacing:0.6px;
+      background:linear-gradient(90deg,#fff,#00aaff);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+
+    /* ---------- Search ---------- */
+    .search-container{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      position:relative;
+      padding:0 12px;
+    }
+    .search-bar{
+      width:60%;
+      max-width:420px;
+      padding:8px 12px 8px 36px;
+      border-radius:8px;
+      border:1px solid #333;
+      background:#080808;
+      color:#fff;
+      font-size:14px;
+      transition:all .25s;
+    }
+    .search-icon{
+      position:absolute;
+      left:14px;
+      font-size:14px;
+      color:#777;
+      pointer-events:none;
+    }
+    .search-toggle{display:none;background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
+
+    nav{display:flex;align-items:center;gap:14px;position:relative}
+    .create-btn{background:linear-gradient(135deg,#007bff,#00aaff);border:none;color:#fff;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer}
+    .icon-wrapper{position:relative}
+    .icon-btn{background:transparent;border:none;color:#fff;font-size:18px;padding:6px;cursor:pointer}
+    .icon-btn:hover{color:#00aaff}
+    .tooltip{position:absolute;bottom:-30px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);padding:6px 8px;border-radius:6px;font-size:12px;color:#fff;opacity:0;pointer-events:none;transition:opacity .15s}
+    .icon-btn:hover .tooltip{opacity:1}
+
+    .hamburger{display:none;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:6px}
+
+    /* ---------- Notification badge ---------- */
+    .notif-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: red;
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    /* ---------- Sidebar ---------- */
+    .aside{
+      grid-area:sidebar;position:fixed;top:60px;left:0;width:250px;height:calc(100vh - 60px);
+      background:rgba(0,0,0,0.8);border-right:1px solid #222;padding:18px;overflow:auto;
+    }
+    .aside ul{list-style:none}
+    .aside li{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;color:#fff;cursor:pointer;margin-bottom:6px;transition:background .15s}
+    .aside li:hover{background:rgba(255,255,255,0.03)}
+    .aside li i{color:#00aaff;font-size:16px}
+
+    /* Feature 4: Active sidebar item */
+    .aside li.active{
+      background: rgba(0, 170, 255, 0.2);
+      color: #00aaff;
+    }
+
+    /* ---------- Main ---------- */
+    .main{
+      grid-area:main;
+      margin-top:60px;
+      margin-left:0;
+      height:calc(100vh - 60px);
+      overflow:auto;
+      padding:28px 30px;
+      background:#000;
+    }
+
+    .main-inner{
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:28px;
+      align-items:start;
+    }
+
+    /* Top area (welcome + quick actions) */
+    .welcome-row{display:flex;flex-direction:column;gap:12px;margin-bottom:8px}
+    .welcome-row .title{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .welcome-row h2{font-family:Montserrat, sans-serif;font-size:22px}
+    .quick-actions{display:flex;gap:10px}
+    .qa-btn{background:#111;border:1px solid #222;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
+    .qa-btn:hover{background:#00aaff;color:#000}
+
+    /* Overview widgets */
+    .overview-widgets{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:16px;
+      margin-bottom:22px;
+    }
+    .widget-card{
+      background:#0f0f10;border:1px solid #202020;padding:14px;border-radius:10px;text-align:center;
+      box-shadow:0 6px 18px rgba(0,0,0,.5);
+    }
+    .widget-card h3{font-size:28px;color:#00d0ff;margin-bottom:6px}
+    .widget-card p{font-size:13px;color:#cfcfcf}
+
+    /* Kanban preview */
+    .kanban-preview{margin-bottom:18px}
+    .kanban-preview h3{margin-bottom:10px;font-size:16px}
+    .kanban-board{
+      display:flex;
+      gap:16px;
+      overflow:auto;
+      padding-bottom:6px;
+    }
+    .kanban-column{
+      min-width:220px;background:#0f0f10;border:1px solid #222;padding:10px;border-radius:10px;
+      display:flex;flex-direction:column;gap:8px;
+    }
+    .kanban-column h4{font-size:14px;margin-bottom:6px}
+    .kanban-task{
+      background:#151515;padding:8px;border-radius:8px;border:1px solid #232323;font-size:13px;color:#ddd;
+    }
+    .kanban-task.complete{background:linear-gradient(135deg,#003a4d,#005b86);color:#e6fff9}
+
+    /* Right rail widgets */
+    .right-rail{display:flex;flex-direction:column;gap:16px}
+    .panel{background:#0f0f10;border:1px solid #202020;padding:12px;border-radius:10px}
+    .panel h3{font-size:15px;margin-bottom:8px}
+    .assigned-tasks ul,.activity-feed ul{list-style:none;padding:0}
+    .assigned-tasks li,.activity-feed li{background:#121212;padding:8px;margin-bottom:8px;border-radius:8px;border:1px solid #232323;font-size:13px}
+
+    /* Calendar preview */
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .calendar-cell{background:#0b0b0b;border:1px solid #1d1d1d;padding:10px;border-radius:6px;font-size:12px;color:#cfcfcf}
+
+    /* Footer */
+    .footer{
+      grid-area:footer;
+      position:fixed;
+      bottom:0;
+      left:250px;
+      right:0;
+      height:60px;
+      background:rgba(0,0,0,0.85);
+      border-top:1px solid #222;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#999;
+      padding:0 20px;
+    }
+
+    /* ---------- Small screen adjustments ---------- */
+    @media (max-width:992px){
+      .overview-widgets{grid-template-columns:repeat(2,1fr)}
+      .main-inner{grid-template-columns:1fr 300px}
+    }
+
+    @media (max-width:768px){
+      body{overflow:hidden}
+      .container{grid-template-columns:1fr;grid-template-rows:60px 1fr 60px;grid-template-areas:"header" "main" "footer"}
+      .aside{display:none;position:fixed;transform:translateX(-110%);transition:transform .25s ease;z-index:1400;height:100vh;top:0}
+      .aside.open{display:block;transform:translateX(0);left:0;top:0;width:75%;max-width:320px}
+      .footer{left:0}
+      .main{margin-left:0;height:calc(100vh - 60px);overflow:auto;padding:14px}
+      .brand h1{font-size:18px}
+      .search-container{display:flex;justify-content:flex-start}
+      .search-bar{display:none;position:absolute;top:50%;transform:translateY(-50%);width:calc(100% - 40px)}
+      .search-toggle{display:inline-block}
+      .hamburger{display:inline-block}
+      .create-btn{display:none}
+      .main-inner{display:block}
+      .overview-widgets{grid-template-columns:repeat(2,1fr);gap:10px}
+      .kanban-board{overflow:auto}
+      .panel{padding:10px}
+      .right-rail{margin-top:12px}
+      .widget-card,.kanban-column{min-width:unset;width:100%}
+      .footer{height:56px}
+    }
+
+    /* small niceties */
+    .muted{color:#999;font-size:13px}
+    a.btn-link{background:transparent;border:1px dashed #333;padding:6px 8px;border-radius:6px;color:#cfcfcf;text-decoration:none}
+
+
+
+
+
+    /* Account Dropdown (click-to-toggle) */
+.account-wrapper {
+  position: relative;
+}
+
+/* hidden by default */
+.dropdown-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+  width: 160px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: none;
+  z-index: 999;
+  /* make sure clicks inside register */
+  pointer-events: auto;
+}
+
+/* show when parent has .active */
+.account-wrapper.active .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu li {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-menu li:hover {
+  background: #f6f6f6;
+}
+
+/* optional: make the trigger look clickable on focus */
+.icon-btn:focus {
+  outline: 2px solid rgba(0, 120, 212, 0.25);
+  outline-offset: 2px;
+}
+
+
+
+/* Account Dropdown */
+.account-wrapper {
+  position: relative;
+}
+
+/* Dropdown Menu */
+#accountMenu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+  width: 180px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: none;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.25s ease;
+  z-index: 1000;
+}
+
+#accountMenu.show {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#accountMenu li {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#accountMenu li:hover {
+  background: #f6f6f6;
+}
+
+
+/* ACCOUNT DROPDOWN */
+.account-wrapper {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+  width: 180px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  display: none;
+  z-index: 999;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-menu li {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-menu li:hover {
+  background: #f6f6f6;
+}
