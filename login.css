@@ -1,247 +1,294 @@
-  @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap");
 
-    /* --- BODY & PAGE LAYOUT --- */
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: "Poppins", sans-serif;
-      display: flex;
-      flex-direction: column;
-      background: url("./pexels-hillaryfox-1595392.jpg") no-repeat center center / cover;
-      background-attachment: fixed;
-    }
+/* --- BODY & PAGE LAYOUT --- */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Poppins", sans-serif;
+  display: flex;
+  flex-direction: column;
+  background: url("./pexels-hillaryfox-1595392.jpg") no-repeat center center / cover;
+  background-attachment: fixed;
+}
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.18);
-      z-index: 0;
-    }
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.18);
+  z-index: 0;
+}
 
-    body::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 25% 30%, rgba(255,255,255,0.04) 0%, transparent 70%),
-        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03) 0%, transparent 80%);
-      background-size: 180% 180%;
-      animation: moveParticles 16s ease-in-out infinite alternate;
-      pointer-events: none;
-      z-index: 0;
-    }
+body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 25% 30%, rgba(255,255,255,0.04) 0%, transparent 70%),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03) 0%, transparent 80%);
+  background-size: 180% 180%;
+  animation: moveParticles 16s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
 
-    @keyframes moveParticles {
-      from { background-position: 0% 0%, 100% 100%; }
-      to { background-position: 100% 100%, 0% 0%; }
-    }
+@keyframes moveParticles {
+  from { background-position: 0% 0%, 100% 100%; }
+  to { background-position: 100% 100%, 0% 0%; }
+}
 
-    /* --- MAIN --- */
-    main {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 2rem 1rem;
-      z-index: 1;
-    }
+/* --- MAIN --- */
+main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem;
+  z-index: 1;
+}
 
-    /* --- FORM CONTAINER --- */
-    .auth-container {
-      width: 100%;
-      max-width: 420px;
-    }
+/* --- FORM CONTAINER --- */
+.auth-container {
+  width: 100%;
+  max-width: 420px;
+}
 
-    .form-box {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(2px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 2rem;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.35);
-      color: #fff;
-      width: 100%;
-      box-sizing: border-box;
-      animation: floatBox 6s ease-in-out infinite alternate;
-    }
+.form-box {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  color: #fff;
+  width: 100%;
+  box-sizing: border-box;
+  animation: floatBox 6s ease-in-out infinite alternate;
+}
 
-    
-    @keyframes floatBox {
-      0% { transform: translateY(0px); }
-      100% { transform: translateY(-10px); }
-    }
+@keyframes floatBox {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-10px); }
+}
 
-    h2 {
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
+h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
 
-    form {
-      display: grid;
-      gap: 1.5rem;
-    }
+form {
+  display: grid;
+  gap: 1.5rem;
+}
 
-    /* --- INPUT --- */
-    .md-input {
-      position: relative;
-      width: 100%;
-    }
+/* --- INPUT --- */
+.md-input {
+  position: relative;
+  width: 100%;
+}
 
-    .md-input input {
-      width: 100%;
-      border: none;
-      border-bottom: 1.5px solid rgba(255,255,255,0.6);
-      background: transparent;
-      color: #fff;
-      padding: 1rem 0 0.5rem;
-      font-size: 1rem;
-      outline: none;
-      transition: all 0.3s ease;
-    }
+.md-input input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid rgba(255,255,255,0.6);
+  background: transparent;
+  color: #fff;
+  padding: 1rem 40px 0.5rem 0;     /* ← increased right padding for the toggle */
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
 
-    .md-input label {
-      position: absolute;
-      top: 1rem;
-      left: 0;
-      color: rgba(255,255,255,0.7);
-      font-size: 1rem;
-      pointer-events: none;
-      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
-      padding: 0 4px;
-    }
+.md-input label {
+  position: absolute;
+  top: 1rem;
+  left: 0;
+  color: rgba(255,255,255,0.7);
+  font-size: 1rem;
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  padding: 0 4px;
+}
 
-    .md-input input:focus {
-      border-bottom: 2px solid #000;
-    }
+.md-input input:focus {
+  border-bottom: 2px solid #000;
+}
 
-    .md-input input:focus + label,
-    .md-input input:valid + label {
-      top: -0.4rem;
-      font-size: 0.75rem;
-      color: #000;
-    }
+.md-input input:focus + label,
+.md-input input:valid + label {
+  top: -0.4rem;
+  font-size: 0.75rem;
+  color: #000;
+}
 
-    /* --- BUTTONS --- */
-    .login-btn {
-      width: 100%;
-      background: linear-gradient(135deg, #2563eb, #1e40af);
-      color: #fff;
-      padding: 0.9rem;
-      border: none;
-      border-radius: 10px;
-      font-weight: 500;
-      font-size: 1rem;
-      cursor: pointer;
-      box-shadow: 0 6px 14px rgba(0,0,0,0.4);
-      transition: all 0.3s ease;
-    }
+/* --- BUTTONS --- */
+.login-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: #fff;
+  padding: 0.9rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+  transition: all 0.3s ease;
+}
 
-    .login-btn:hover {
-      background: linear-gradient(135deg, #040507, #06070a);
-      box-shadow: 0 8px 18px rgba(0,0,0,0.55);
-      transform: translateY(-2px);
-    }
+.login-btn:hover {
+  background: linear-gradient(135deg, #040507, #06070a);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.55);
+  transform: translateY(-2px);
+}
 
-    .login-btn:active {
-      transform: translateY(1px);
-      box-shadow: 0 4px 8px rgba(9,10,12,0.4);
-    }
+.login-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 4px 8px rgba(9,10,12,0.4);
+}
 
-    .google-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.6rem;
-      width: 100%;
-      padding: 0.85rem;
-      border: 1px solid #dadce0;
-      border-radius: 10px;
-      background: #fff;
-      color: #3c4043;
-      font-weight: 500;
-      font-size: 0.95rem;
-      cursor: pointer;
-      transition: all 0.25s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.12);
-    }
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid #dadce0;
+  border-radius: 10px;
+  background: #fff;
+  color: #3c4043;
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+}
 
-    .google-btn img {
-      width: 30px;
-      height: 30px;
-    }
+.google-btn img {
+  width: 30px;
+  height: 30px;
+}
 
-    .google-btn:hover {
-      background: #f8f9fa;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.18);
-      transform: translateY(-1px);
-    }
+.google-btn:hover {
+  background: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.18);
+  transform: translateY(-1px);
+}
 
-    .google-btn:active {
-      background: #f1f3f4;
-      transform: translateY(1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+.google-btn:active {
+  background: #f1f3f4;
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
-    /* --- LINKS --- */
-    .reg, a {
-      color: rgba(79, 217, 255, 0.927);
-      text-decoration: underline;
-      text-align: center;
-    }
+/* --- LINKS --- */
+.reg, a {
+  color: rgba(79, 217, 255, 0.927);
+  text-decoration: underline;
+  text-align: center;
+}
 
-    p {
-      text-align: center;
-      margin: 0.5rem 0;
-    }
+p {
+  text-align: center;
+  margin: 0.5rem 0;
+}
 
-    /* --- FOOTER --- */
-    footer {
-      background: #000; /* solid black */
-      color: #fff;
-      text-align: center;
-      padding: 1rem 0;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      z-index: 5;
-    }
+/* --- FOOTER --- */
+footer {
+  background: #000; /* solid black */
+  color: #fff;
+  text-align: center;
+  padding: 1rem 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  z-index: 5;
+}
 
-    .footer-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
-    .footer-links, .footer-icons {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.5rem;
-    }
+.footer-links, .footer-icons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
 
-    .footer-icons a img {
-      filter: brightness(0) invert(1);
-      opacity: 0.8;
-      transition: 0.3s ease;
-    }
+.footer-icons a img {
+  filter: brightness(0) invert(1);
+  opacity: 0.8;
+  transition: 0.3s ease;
+}
 
-    .footer-icons a img:hover {
-      opacity: 1;
-      transform: translateY(-2px);
-    }
+.footer-icons a img:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+}
 
-    /* --- RESPONSIVE --- */
-    @media (max-width: 480px) {
-      .form-box {
-        padding: 1.5rem;
-        animation: none;
-      }
-      .md-input input {
-        font-size: 0.95rem;
-      }
-      .login-btn, .google-btn {
-        font-size: 0.9rem;
-      }
-    }
+/* --- RESPONSIVE --- */
+@media (max-width: 480px) {
+  .form-box {
+    padding: 1.5rem;
+    animation: none;
+  }
+  .md-input input {
+    font-size: 0.95rem;
+  }
+  .login-btn, .google-btn {
+    font-size: 0.9rem;
+  }
+}
+
+/* ================================================================== */
+/* PASSWORD TOGGLE – ADDED AT THE END (NOTHING ABOVE WAS TOUCHED)   */
+/* ================================================================== */
+.password-wrapper {
+  position: relative;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  color: rgba(255,255,255,0.7);
+  z-index: 2;
+}
+
+.toggle-password:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.toggle-password:focus {
+  /* outline: 2px solid #00ccff; */
+  outline-offset: 2px;
+}
+
+.toggle-password svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.toggle-password .eye-closed {
+  display: none;
+}
+
+.toggle-password.show .eye-open {
+  display: none;
+}
+
+.toggle-password.show .eye-closed {
+  display: block;
+}
