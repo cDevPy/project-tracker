@@ -1,0 +1,22 @@
+{% extends 'projectTracker/base.html' %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 50px auto; padding: 20px;">
+    <h2>Invite Team Member</h2>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div style="color: red; margin-bottom: 10px;">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <p>Type the username of a registered user to add them to your project.</p>
+        {{ form.as_p }}
+        <button type="submit" style="background: black; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+            Add Member
+        </button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'projectTracker/base.html' %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 50px auto; padding: 20px;">
+    <h2>Edit Task</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" style="background: black; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+                Update Task
+            </button>
+            <a href="{% url 'projects:index' %}" style="padding: 10px 20px; text-decoration: none; color: black; border: 1px solid #ccc;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

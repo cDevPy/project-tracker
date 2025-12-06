@@ -1,0 +1,14 @@
+{% extends 'projectTracker/base.html' %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 50px auto; padding: 20px;">
+    <h2>Create New Task</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" style="background: black; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+            Save Task
+        </button>
+    </form>
+</div>
+{% endblock %}

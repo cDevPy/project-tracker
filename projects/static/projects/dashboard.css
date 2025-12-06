@@ -378,3 +378,17 @@
 .dropdown-menu li:hover {
   background: #f6f6f6;
 }
+
+.site-logo {
+    height: 40px;      
+    width: auto;       
+    max-width: 100%;   
+    object-fit: contain;
+}
+
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}

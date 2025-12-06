@@ -1,0 +1,362 @@
+{% extends 'projectTracker/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link
+  href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@600;700&display=swap"
+  rel="stylesheet">
+
+<link rel="stylesheet" href="{% static 'projects/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <header class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" id="hamburgerBtn" aria-label="Open menu"><i class="fa fa-bars"></i></button>
+      <div class="brand">
+        <img class="site-logo" src="{% static 'projects/logo.png' %}" alt="logo" width="50">
+        <h1>SwyftTask</h1>
+      </div>
+    </div>
+
+    <form class="search-container" method="GET" action="{% url 'projects:index' %}">
+
+      <button class="search-toggle" type="submit" aria-label="Search">
+        <i class="fa fa-search"></i>
+      </button>
+
+      <input class="search-bar" type="text" name="q" placeholder="Search projects, tasks..."
+        value="{{ request.GET.q|default:'' }}" aria-label="Search">
+    </form>
+
+    <nav>
+      <a href="{% url 'projects:create_task' %}" class="create-btn" id="createBtn" style="text-decoration:none;">+
+        Create</a>
+
+      <div class="icon-wrapper account-wrapper">
+        <button class="icon-btn" aria-haspopup="true" id="accountBtn">
+          <i class="fa-regular fa-user"></i>
+          <span class="tooltip">Account</span>
+        </button>
+        <ul class="dropdown-menu" id="accountMenu">
+          <li><i class="fa fa-user"></i> Profile</li>
+          <li><i class="fa fa-gear"></i> Settings</li>
+          <li>
+            <a href="{% url 'accounts.logout' %}" style="text-decoration: none; color: inherit;">
+              <i class="fa fa-sign-out"></i> Logout
+            </a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <aside class="aside" id="sidebar">
+    <ul>
+      <li>
+        <a href="{% url 'projects:index' %}"
+          style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%; height: 100%;">
+          <i class="fa-solid fa-chart-line"></i> Overview
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'projects:create_task' %}"
+          style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%; height: 100%;">
+          <i class="fa-solid fa-list-check"></i> New Task
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'projects:create_project' %}"
+          style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%; height: 100%;">
+          <i class="fa-solid fa-briefcase"></i> New Project
+        </a>
+      </li>
+
+      <li style="margin-top: auto;">
+        <a href="{% url 'accounts.logout' %}"
+          style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%; height: 100%;">
+          <i class="fa-solid fa-sign-out-alt"></i> Logout
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <main class="main" id="mainContent">
+    <div class="welcome-row">
+      <div class="title">
+        <h2>Welcome back, {{ user.username }}</h2>
+        <div class="muted">Today • <strong id="todayLabel"></strong></div>
+      </div>
+
+      <div class="quick-actions" aria-label="Quick actions">
+        <a href="{% url 'projects:create_task' %}" class="qa-btn" id="newTaskBtn" style="text-decoration:none;">
+          <i class="fa fa-plus" style="margin-right:8px"></i>New Task
+        </a>
+        <a href="{% url 'projects:create_project' %}" class="qa-btn" id="newProjectBtn" style="text-decoration:none;">
+          <i class="fa fa-briefcase" style="margin-right:8px"></i>New Project
+        </a>
+        <a href="{% url 'projects:invite' %}" class="qa-btn" id="inviteBtn" style="text-decoration:none;">
+          <i class="fa fa-user-plus" style="margin-right:8px"></i>Invite
+        </a>
+      </div>
+    </div>
+
+    <div class="main-inner">
+      <div>
+        <section class="overview-widgets" aria-label="Overview">
+          <div class="widget-card">
+            <h3 id="activeProjectsCount">{{ active_projects_count }}</h3>
+            <p>Active Projects</p>
+          </div>
+          <div class="widget-card">
+            <h3 id="tasksDueCount">{{ tasks_due_count }}</h3>
+            <p>Tasks Due</p>
+          </div>
+          <div class="widget-card">
+            <h3 id="overdueCount">{{ overdue_count }}</h3>
+            <p>Overdue Items</p>
+          </div>
+          <div class="widget-card">
+            <h3 id="teamCount">{{ team_count }}</h3>
+            <p>Team Members</p>
+          </div>
+        </section>
+
+        <section class="kanban-preview" aria-label="Kanban preview">
+          <h3>Project Board</h3>
+          <div class="kanban-board" id="kanbanBoard" role="list">
+
+            <div class="kanban-column" data-column="todo" aria-label="To Do column">
+              <h4>To Do</h4>
+              {% for task in todo_tasks %}
+              <div class="kanban-task" role="listitem">
+                <strong>{{ task.title }}</strong><br>
+                <small class="muted">{{ task.project.name }}</small>
+                <div style="margin-top: 10px; font-size: 0.9em;">
+                  <a href="{% url 'projects:edit_task' task.id %}"
+                    style="color: blue; text-decoration: none; margin-right: 10px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </a>
+                  <a href="{% url 'projects:delete_task' task.id %}" style="color: red; text-decoration: none;">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </a>
+                </div>
+              </div>
+              {% empty %}
+              <div class="muted" style="padding:10px;">No tasks!</div>
+              {% endfor %}
+            </div>
+
+            <div class="kanban-column" data-column="inprogress" aria-label="In progress column">
+              <h4>In Progress</h4>
+              {% for task in inprogress_tasks %}
+              <div class="kanban-task" role="listitem">
+                <strong>{{ task.title }}</strong><br>
+                <small class="muted">{{ task.project.name }}</small>
+                <div style="margin-top: 10px; font-size: 0.9em;">
+                  <a href="{% url 'projects:edit_task' task.id %}"
+                    style="color: blue; text-decoration: none; margin-right: 10px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </a>
+                  <a href="{% url 'projects:delete_task' task.id %}" style="color: red; text-decoration: none;">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </a>
+                </div>
+              </div>
+              {% empty %}
+              <div class="muted" style="padding:10px;">—</div>
+              {% endfor %}
+            </div>
+
+            <div class="kanban-column" data-column="review" aria-label="Review column">
+              <h4>Review</h4>
+              {% for task in review_tasks %}
+              <div class="kanban-task" role="listitem">
+                <strong>{{ task.title }}</strong><br>
+                <small class="muted">{{ task.project.name }}</small>
+                <div style="margin-top: 10px; font-size: 0.9em;">
+                  <a href="{% url 'projects:edit_task' task.id %}"
+                    style="color: blue; text-decoration: none; margin-right: 10px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </a>
+                  <a href="{% url 'projects:delete_task' task.id %}" style="color: red; text-decoration: none;">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </a>
+                </div>
+              </div>
+              {% empty %}
+              <div class="muted" style="padding:10px;">—</div>
+              {% endfor %}
+            </div>
+
+            <div class="kanban-column" data-column="done" aria-label="Done column">
+              <h4>Done</h4>
+              {% for task in done_tasks %}
+              <div class="kanban-task complete" role="listitem">
+                <strong>{{ task.title }}</strong><br>
+                <small class="muted">{{ task.project.name }}</small>
+                <div style="margin-top: 10px; font-size: 0.9em;">
+                  <a href="{% url 'projects:edit_task' task.id %}"
+                    style="color: blue; text-decoration: none; margin-right: 10px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </a>
+                  <a href="{% url 'projects:delete_task' task.id %}" style="color: red; text-decoration: none;">
+                    <i class="fa-solid fa-trash"></i> Delete
+                  </a>
+                </div>
+              </div>
+              {% empty %}
+              <div class="muted" style="padding:10px;">—</div>
+              {% endfor %}
+            </div>
+
+          </div>
+
+      </div>
+      <div style="margin-top:8px;">
+        <a href="#" class="btn-link" id="openBoard">Open full board</a>
+      </div>
+      </section>
+
+      <section class="panel" aria-label="Upcoming Deadlines">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3>Upcoming Deadlines</h3>
+          <i class="fa-solid fa-calendar-days" style="color: #888;"></i>
+        </div>
+
+        <ul style="list-style: none; padding: 0;">
+          {% for task in upcoming_deadlines %}
+          <li
+            style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee;">
+
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="width: 8px; height: 8px; background-color: black; border-radius: 50%;"></div>
+
+              <div>
+                <div style="font-weight: 600; font-size: 0.95em;">{{ task.title }}</div>
+                <div style="font-size: 0.8em; color: #666;">{{ task.project.name }}</div>
+              </div>
+            </div>
+
+            <div style="text-align: right;">
+              <div style="font-weight: 600; font-size: 0.9em;">{{ task.due_date|date:"M d" }}</div>
+
+              <div style="font-size: 0.75em; color: #888;">
+                {{ task.due_date|timeuntil }} left
+              </div>
+            </div>
+          </li>
+          {% empty %}
+          <li style="padding: 20px; text-align: center; color: #888;">
+            No upcoming deadlines!
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <aside class="right-rail" aria-label="Right rail">
+        <div class="panel assigned-tasks" aria-live="polite">
+          <h3>Your Tasks</h3>
+          <ul style="list-style: none; padding: 0;">
+            {% for task in your_tasks %}
+            <li
+              style="padding: 10px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.9em;">{{ task.title }}</div>
+                <div style="font-size: 0.8em; color: #666;">
+                  {{ task.project.name }}
+                  {% if task.due_date %}
+                  • <span style="color: #e74c3c;">Due {{ task.due_date|date:"M d" }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <a href="{% url 'projects:edit_task' task.id %}" style="color: #888; text-decoration: none;">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </a>
+            </li>
+            {% empty %}
+            <li style="padding: 15px; color: #888; text-align: center;">No tasks assigned to you.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="panel activity-feed">
+          <h3>Recent Activity</h3>
+          <ul style="list-style: none; padding: 0;">
+            {% for task in recent_activity %}
+            <li
+              style="padding: 10px 0; border-bottom: 1px solid #eee; display: flex; gap: 10px; align-items: flex-start;">
+              <div style="margin-top: 3px; color: #2ecc71;">
+                <i class="fa-solid fa-circle-plus"></i>
+              </div>
+
+              <div>
+                <div style="font-size: 0.9em;">
+                  <strong>New Task:</strong> {{ task.title }}
+                </div>
+                <div style="font-size: 0.8em; color: #888;">
+                  Added to <em>{{ task.project.name }}</em>
+                </div>
+              </div>
+            </li>
+            {% empty %}
+            <li style="padding: 15px; color: #888; text-align: center;">No recent activity.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h3>Project Progress</h3>
+
+          <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+            {% for project in projects %}
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                <strong>{{ project.name }}</strong>
+                <span class="muted">{{ project.progress }}%</span>
+              </div>
+
+              <div style="width: 100%; background-color: #eee; height: 8px; border-radius: 4px; overflow: hidden;">
+                <div style="width: {{ project.progress }}%; background-color: black; height: 100%;"></div>
+              </div>
+            </div>
+            {% empty %}
+            <p class="muted" style="text-align: center;">No active projects.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <footer class="footer">
+          <p>&copy; 2025 SwyftTask. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script defer src="{% static 'projects/dashboard.js' %}"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const accountBtn = document.getElementById('accountBtn');
+        const accountMenu = document.getElementById('accountMenu');
+        const newAccountBtn = accountBtn.cloneNode(true);
+        accountBtn.parentNode.replaceChild(newAccountBtn, accountBtn);
+        newAccountBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          accountMenu.classList.toggle('show');
+          if (accountMenu.style.display === 'block') {
+            accountMenu.style.display = 'none';
+          } else {
+            accountMenu.style.display = 'block';
+          }
+        });
+        document.addEventListener('click', function () {
+          accountMenu.style.display = 'none';
+          accountMenu.classList.remove('show');
+        });
+      });
+    </script>
+
+    {% endblock %}

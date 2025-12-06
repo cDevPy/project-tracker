@@ -12,11 +12,15 @@
       <h1>PROJECT TRACKER</h1>
       <ul>
         <li><a href="{% url 'home.landing' %}">Home</a></li>
-        <li><a href="#">About</a></li>
+        
         {% if user.is_authenticated %}
-        <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
+          <li><a href="{% url 'projects:index' %}">Profile</a></li>
+
+          <li><a href="{% url 'projects:project_hub' %}">Projects</a></li>
+        
+          <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
         {% else %}
-        <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
+          <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
         {% endif %}
       </ul>
     </nav>

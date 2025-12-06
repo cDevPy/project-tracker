@@ -13,14 +13,18 @@ def access(request):
 def signup(request):
     template_data = {}
     template_data['title'] = 'Sign Up | Project Tracker'
+    
     if request.method == 'GET':
         template_data['form'] = CustomUserCreationForm()
         return render(request, 'accounts/signup.html', {'template_data': template_data})
+    
     elif request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('accounts.login')
+            user = form.save()
+            login(request, user)
+            return redirect('projects:index')
+            
         else:
             template_data['form'] = form
             return render(request, 'accounts/signup.html', {'template_data': template_data})
@@ -34,7 +38,7 @@ def userLogin(request):
         user = authenticate(request, username = request.POST['username'], password = request.POST['password'])
         if user is not None:
             login(request, user)
-            return redirect('home.landing')
+            return redirect('projects:index') 
         else:
             template_data['error'] = 'The username or password is incorrect'
             return render(request, 'accounts/login.html', {'template_data': template_data})
