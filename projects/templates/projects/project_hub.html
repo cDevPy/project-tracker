@@ -1,0 +1,29 @@
+{% extends 'projectTracker/base.html' %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 50px auto; padding: 20px;">
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h2>My Projects</h2>
+        <a href="{% url 'projects:create_project' %}" style="background: black; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+            + New Project
+        </a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+        {% for project in projects %}
+        <a href="{% url 'projects:project_detail' project.id %}" style="text-decoration: none; color: inherit;">
+            <div style="border: 1px solid #ddd; padding: 20px; border-radius: 8px; transition: 0.2s; background: white;">
+                <h3 style="margin-top: 0;">{{ project.name }}</h3>
+                <p style="color: #666; font-size: 0.9em;">{{ project.description|default:"No description"|truncatewords:10 }}</p>
+                <div style="margin-top: 15px; font-size: 0.8em; color: #888;">
+                    Click to manage tasks &rarr;
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <p>You haven't created any projects yet.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

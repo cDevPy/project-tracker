@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'home',
     'projects',
     'tasks',
+    'reporting',
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -129,3 +131,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Add the custom User model
 # AUTH_USER_MODEL = 'accounts.CustomUser'
+
+LOGIN_REDIRECT_URL = 'projects:index'
+
+LOGOUT_REDIRECT_URL = 'home.landing'
