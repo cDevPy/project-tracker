@@ -13,6 +13,7 @@
             <li><a href="{% url 'home.landing' %}">Home</a></li>
             <li><a href="#">About</a></li>
             {% if user.is_authenticated %}
+            <li><a href="{% url 'home.dashboard' %}">Dashboard</a></li>
             <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
             {% else %}
             <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>

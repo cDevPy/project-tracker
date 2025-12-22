@@ -7,12 +7,12 @@ from .forms import CustomUserCreationForm, CustomErrorList
 
 def access(request):
     template_data = {}
-    template_data['title'] = 'Account Access | Project Tracker'
+    template_data['title'] = 'Account Access | SwyftTask'
     return render(request, 'accounts/access.html', {'template_data': template_data})
 
 def signup(request):
     template_data = {}
-    template_data['title'] = 'Sign Up | Project Tracker'
+    template_data['title'] = 'Sign Up | SwyftTask'
     if request.method == 'GET':
         template_data['form'] = CustomUserCreationForm()
         return render(request, 'accounts/signup.html', {'template_data': template_data})
@@ -27,14 +27,14 @@ def signup(request):
 
 def userLogin(request):
     template_data = {}
-    template_data['title'] = 'Login | Project Tracker'
+    template_data['title'] = 'Login | SwyftTask'
     if request.method == 'GET':
         return render(request, 'accounts/login.html', {"template_data": template_data})
     elif request.method == 'POST':
         user = authenticate(request, username = request.POST['username'], password = request.POST['password'])
         if user is not None:
             login(request, user)
-            return redirect('home.landing')
+            return redirect('home.dashboard')
         else:
             template_data['error'] = 'The username or password is incorrect'
             return render(request, 'accounts/login.html', {'template_data': template_data})
