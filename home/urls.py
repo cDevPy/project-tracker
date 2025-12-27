@@ -20,4 +20,6 @@ urlpatterns = [
     path('api/tasks/<int:task_id>/comments/', views.task_comments, name='task_comments'),
     path('api/tasks/<int:task_id>/comments/add/', views.add_comment_api, name='add_comment_api'),
     path('api/tasks/<int:task_id>/delete/', views.delete_task_api, name='delete_task_api'),
+    path('debug/tasks/', views.debug_tasks, name='debug_tasks'),
+    path('debug/tasks/<int:project_id>/', views.debug_tasks, name='debug_tasks_project'),
 ]

@@ -425,10 +425,10 @@ def project_details(request, project_id):
         
         # Define status mappings
         status_mapping = {
-            'todo': ['todo', 'Todo', 'To Do', 'TO_DO'],
-            'inprogress': ['inprogress', 'In Progress', 'in_progress', 'pending', 'Pending'],
-            'review': ['review', 'Review'],
-            'done': ['done', 'Done', 'Completed', 'completed']
+            'todo': ['todo'],#, 'Todo', 'To Do', 'TO_DO'],
+            'inprogress': ['inprogress'],#, 'In Progress', 'in_progress', 'pending', 'Pending'],
+            'review': ['review'],#, 'Review'],
+            'done': ['done'],#, 'Done', 'Completed', 'completed']
         }
         
         # Get tasks for each category
@@ -440,11 +440,15 @@ def project_details(request, project_id):
         
         # Calculate statistics
         total_tasks = tasks.count()
-        completed_tasks = tasks.filter(status='done').count()
-        overdue_tasks = tasks.filter(
-            due_date__lt=timezone.now().date(),
-            status__in=['todo', 'inprogress', 'review']
-        ).count()
+        completed_tasks = tasks_by_status['done'].count()
+        # For overdue, we need to check tasks that are not done
+        overdue_tasks = 0
+        for category in ['todo', 'inprogress', 'review']:
+            for task in tasks_by_status[category]:
+                if task['due_date']:
+                    due_date = datetime.strptime(task['due_date'], '%Y-%m-%d').date()
+                    if due_date < timezone.now().date():
+                        overdue_tasks += 1
 
         # print(f"📊 Stats - Total: {total_tasks}, Completed: {completed_tasks}, Overdue: {overdue_tasks}")
         
@@ -1172,6 +1176,16 @@ def update_task_api(request, task_id):
             else:
                 task.assigned_to = None
         
+        if 'project' in data:
+            try:
+                new_project = Project.objects.get(id=data['project'])
+                # Check if user has access to the new project
+                if new_project.owner != request.user and request.user not in new_project.members.all():
+                    return JsonResponse({'success': False, 'error': 'Access denied to target project'}, status=403)
+                task.project = new_project
+            except Project.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Project not found'}, status=404)
+        
         task.save()
         
         # Format updated task data
@@ -1183,6 +1197,8 @@ def update_task_api(request, task_id):
             'priority': task.priority,
             'due_date': task.due_date.strftime('%Y-%m-%d') if task.due_date else None,
             'assigned_to': task.assigned_to.id if task.assigned_to else None,
+            'project_id': task.project.id,
+            'project_name': task.project.name,
             'updated_at': task.updated_at.strftime('%Y-%m-%d %H:%M'),
         }
         
@@ -1336,3 +1352,19 @@ def delete_task_api(request, task_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+# Add this temporary view to home/views.py
+from django.http import HttpResponse
+@login_required
+def debug_tasks(request, project_id=None):
+    """Debug view to see task status values"""
+    if project_id:
+        tasks = Task.objects.filter(project_id=project_id)
+    else:
+        tasks = Task.objects.filter(project__owner=request.user)
+    
+    output = []
+    for task in tasks:
+        output.append(f"Task {task.id}: '{task.title}' - Status: '{task.status}' - Display: '{task.get_status_display()}'")
+    
+    return HttpResponse("<br>".join(output))

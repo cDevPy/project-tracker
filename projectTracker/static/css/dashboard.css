@@ -4599,3 +4599,34 @@ button:disabled, .qa-btn:disabled {
 .context-menu .menu-item.delete:hover {
   background: rgba(255, 107, 107, 0.1);
 }
+
+/* Add to dashboard.css */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-overlay select {
+  width: 100%;
+  padding: 10px;
+  background: rgba(20,20,25,0.95);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  margin: 16px 0;
+}
+
+.modal-overlay select:focus {
+  outline: none;
+  border-color: #00aaff;
+  box-shadow: 0 0 0 3px rgba(0,170,255,0.2);
+}

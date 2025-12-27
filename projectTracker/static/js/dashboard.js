@@ -414,7 +414,21 @@ async function refreshDashboardData(force = false) {
         total_projects: data.total_projects || data.projects.length,
       };
 
-      updateCompleteDashboardUI(data);
+      console.log("📊 Updated counts:", data.counts);
+
+      // Update the UI only if we're on dashboard
+      if (AppState.currentPage === "dashboard") {
+        updateCompleteDashboardUI(data);
+      }
+
+      // If we're on tasks page, refresh it too
+      if (AppState.currentPage === "tasks") {
+        // Re-initialize tasks page with new data
+        const mainContent = document.getElementById("mainContent");
+        if (mainContent && mainContent.innerHTML.includes("tasks-page")) {
+          initializeTasksPage(data);
+        }
+      }
     }
   } catch (error) {
     console.error("Error refreshing dashboard:", error);
@@ -3075,38 +3089,61 @@ async function duplicateTask(taskId) {
   }
 }
 
+// =============================================
+// TASK DELETION - FIXED
+// =============================================
+
 async function deleteTask(taskId) {
   if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
   
+  showLoader();
+  
   try {
-    // In a real app, you would have a delete endpoint
-    // For now, we'll show a notification and go back
-    showNotification("Task deleted successfully!", "success");
+    const response = await fetch(`/api/tasks/${taskId}/delete/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+    });
     
-    // Go back to dashboard
-    setTimeout(() => {
-      restoreDashboard();
-      // Refresh dashboard data
-      refreshDashboardData();
-    }, 1000);
+    const result = await response.json();
+    
+    if (result.success) {
+      showNotification("Task deleted successfully!", "success");
+      
+      // Go back to dashboard
+      setTimeout(() => {
+        restoreDashboard();
+        // Refresh dashboard data
+        refreshDashboardData(true); // Force refresh
+      }, 1000);
+    } else {
+      showNotification(result.error || "Failed to delete task", "error");
+    }
   } catch (error) {
     console.error("Error deleting task:", error);
     showNotification("Failed to delete task", "error");
+  } finally {
+    hideLoader();
   }
 }
 
+// =============================================
+// COMMENT EDITING - FIXED
+// =============================================
+
 function editComment(commentId) {
-  const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
-  if (!commentElement) {
-    // Find by content
-    const allComments = document.querySelectorAll('.activity-item.comment');
-    allComments.forEach(comment => {
-      const editLink = comment.querySelector('a[onclick*="' + commentId + '"]');
-      if (editLink) {
-        commentElement = comment;
-      }
-    });
-  }
+  const allComments = document.querySelectorAll('.activity-item.comment');
+  let commentElement = null;
+  
+  // Find the comment element
+  allComments.forEach(comment => {
+    const editLink = comment.querySelector('a');
+    if (editLink && editLink.onclick && editLink.onclick.toString().includes(commentId)) {
+      commentElement = comment;
+    }
+  });
   
   if (!commentElement) return;
   
@@ -3137,7 +3174,7 @@ function editComment(commentId) {
   
   actionsDiv.innerHTML = `
     <button class="qa-btn small-btn" onclick="saveCommentEdit(${commentId}, this)">Save</button>
-    <button class="qa-btn small-btn cancel-btn" onclick="cancelCommentEdit(${commentId}, '${currentContent.replace(/'/g, "\\'")}')">Cancel</button>
+    <button class="qa-btn small-btn cancel-btn" onclick="cancelCommentEdit(this, '${currentContent.replace(/'/g, "\\'").replace(/"/g, '\\"')}')">Cancel</button>
   `;
   
   // Store original state
@@ -3146,31 +3183,27 @@ function editComment(commentId) {
 }
 
 async function saveCommentEdit(commentId, button) {
-  const commentElement = button.closest('.activity-item.comment');
-  const textarea = commentElement.querySelector('.comment-edit-textarea');
+  const commentElement = button.closest(".activity-item.comment");
+  const textarea = commentElement.querySelector(".comment-edit-textarea");
   const newContent = textarea.value.trim();
-  
+
   if (!newContent) {
     showNotification("Comment cannot be empty", "error");
     return;
   }
-  
+
   try {
-    // In a real app, you would have an update comment endpoint
-    // For now, we'll update the UI directly
-    const commentBody = document.createElement('p');
+    // In a real app, you would update via API
+    // For now, update UI directly
+    const commentBody = document.createElement("p");
     commentBody.textContent = newContent;
-    
+
     textarea.parentNode.replaceChild(commentBody, textarea);
-    
+
     // Restore actions
-    const actionsDiv = commentElement.querySelector('.comment-actions');
-    if (commentElement.dataset.originalActions) {
-      actionsDiv.innerHTML = commentElement.dataset.originalActions;
-    } else {
-      actionsDiv.innerHTML = `<span class="muted">Edited just now</span> · <a href="#" onclick="editComment(${commentId})">Edit</a>`;
-    }
-    
+    const actionsDiv = commentElement.querySelector(".comment-actions");
+    actionsDiv.innerHTML = `<span class="muted">Edited just now</span> · <a href="#" onclick="editComment(${commentId})">Edit</a>`;
+
     showNotification("Comment updated", "success");
   } catch (error) {
     console.error("Error saving comment edit:", error);
@@ -3178,94 +3211,118 @@ async function saveCommentEdit(commentId, button) {
   }
 }
 
-function cancelCommentEdit(commentId, originalContent) {
-  const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
-  if (!commentElement) return;
-  
+function cancelCommentEdit(button, originalContent) {
+  const commentElement = button.closest(".activity-item.comment");
+
   // Restore original content
-  const textarea = commentElement.querySelector('.comment-edit-textarea');
+  const textarea = commentElement.querySelector(".comment-edit-textarea");
   if (textarea) {
-    const commentBody = document.createElement('p');
+    const commentBody = document.createElement("p");
     commentBody.textContent = originalContent;
     textarea.parentNode.replaceChild(commentBody, textarea);
   }
-  
+
   // Restore original actions
-  const actionsDiv = commentElement.querySelector('.comment-actions');
+  const actionsDiv = commentElement.querySelector(".comment-actions");
   if (commentElement.dataset.originalActions) {
     actionsDiv.innerHTML = commentElement.dataset.originalActions;
   }
 }
 
-function moveTaskToProject(taskId) {
-  // Get all projects for the current user
-  fetch('/api/projects/all/')
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        // Create project selection modal
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 10000;
-        `;
-        
-        const modalContent = document.createElement('div');
-        modalContent.style.cssText = `
-          background: #1a1a1a;
-          border: 1px solid #333;
-          border-radius: 12px;
-          padding: 24px;
-          max-width: 400px;
-          width: 90%;
-          color: white;
-        `;
-        
-        const projectsOptions = data.projects.map(project => 
-          `<option value="${project.id}">${project.name}</option>`
-        ).join('');
-        
-        modalContent.innerHTML = `
-          <h3 style="margin-top: 0;">Move Task to Project</h3>
-          <p>Select a project to move this task to:</p>
-          <select id="projectSelect" class="form-select" style="width: 100%; margin: 16px 0;">
-            ${projectsOptions}
-          </select>
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="qa-btn cancel-btn" style="flex: 1;" onclick="this.closest('.modal-overlay').remove()">
-              Cancel
-            </button>
-            <button class="qa-btn" style="flex: 1; background: #00aaff;" onclick="confirmMoveTask(${taskId}, this)">
-              Move
-            </button>
-          </div>
-        `;
-        
-        modal.appendChild(modalContent);
-        modal.className = 'modal-overlay';
-        document.body.appendChild(modal);
-      }
-    })
-    .catch(error => {
-      console.error("Error loading projects:", error);
-      showNotification("Failed to load projects", "error");
-    });
+// =============================================
+// TASK MOVEMENT - FIXED
+// =============================================
+
+async function moveTaskToProject(taskId) {
+  showLoader();
+  
+  try {
+    // Get all projects for the current user
+    const response = await fetch('/api/projects/all/');
+    const data = await response.json();
+    
+    if (data.success) {
+      // Create project selection modal
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      `;
+      
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 400px;
+        width: 90%;
+        color: white;
+      `;
+      
+      const projectsOptions = data.projects.map(project => 
+        `<option value="${project.id}">${project.name}</option>`
+      ).join('');
+      
+      modalContent.innerHTML = `
+        <h3 style="margin-top: 0;">Move Task to Project</h3>
+        <p>Select a project to move this task to:</p>
+        <select id="projectSelect" class="form-select" style="width: 100%; margin: 16px 0; padding: 10px; background: #111; color: white; border: 1px solid #333; border-radius: 6px;">
+          ${projectsOptions}
+        </select>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button class="qa-btn cancel-btn" style="flex: 1;" onclick="closeModal()">
+            Cancel
+          </button>
+          <button class="qa-btn" style="flex: 1; background: #00aaff;" onclick="confirmMoveTask(${taskId})">
+            Move
+          </button>
+        </div>
+      `;
+      
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      // Store modal reference
+      window.currentModal = modal;
+    }
+  } catch (error) {
+    console.error("Error loading projects:", error);
+    showNotification("Failed to load projects", "error");
+  } finally {
+    hideLoader();
+  }
 }
 
-async function confirmMoveTask(taskId, button) {
-  const projectSelect = document.getElementById('projectSelect');
+function closeModal() {
+  if (window.currentModal) {
+    window.currentModal.remove();
+    window.currentModal = null;
+  }
+}
+
+async function confirmMoveTask(taskId) {
+  const projectSelect = document.getElementById("projectSelect");
   if (!projectSelect) return;
-  
+
   const newProjectId = projectSelect.value;
-  
+
+  if (!newProjectId) {
+    showNotification("Please select a project", "error");
+    return;
+  }
+
+  showLoader();
+
   try {
     // Update task project
     const response = await fetch(`/api/tasks/${taskId}/update/`, {
@@ -3275,47 +3332,34 @@ async function confirmMoveTask(taskId, button) {
         "X-CSRFToken": getCSRFToken(),
       },
       body: JSON.stringify({
-        project: newProjectId
+        project: newProjectId,
       }),
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       showNotification("Task moved to new project", "success");
-      
+
       // Close modal
-      const modal = button.closest('.modal-overlay');
-      if (modal) modal.remove();
-      
+      closeModal();
+
       // Reload task details
-      const taskTitle = document.getElementById('taskTitle')?.textContent || 'Task';
-      openTaskDetails(taskId, taskTitle);
+      setTimeout(() => {
+        const taskTitle =
+          document.getElementById("taskTitle")?.textContent || "Task";
+        openTaskDetails(taskId, taskTitle);
+      }, 500);
     } else {
       showNotification(result.error || "Failed to move task", "error");
     }
   } catch (error) {
     console.error("Error moving task:", error);
     showNotification("Failed to move task", "error");
+  } finally {
+    hideLoader();
   }
 }
-
-// Add this CSS for small buttons
-const style = document.createElement('style');
-style.textContent = `
-  .small-btn {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-    margin-right: 4px;
-  }
-  
-  .comment-edit-textarea:focus {
-    outline: none;
-    border-color: #00aaff !important;
-    box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.2) !important;
-  }
-`;
-document.head.appendChild(style);
 
 // =============================================
 // STUB FUNCTIONS FOR OTHER PAGES
