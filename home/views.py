@@ -4,10 +4,12 @@ from django.utils import timezone
 from datetime import datetime, date
 from projects.models import Project
 from tasks.models import Task
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.db.models import Q
 from .forms import TaskForm, ProjectForm, InviteForm
+
+User = get_user_model()
 
 # Landing page (public)
 def landing(request):
@@ -20,7 +22,7 @@ from django.utils import timezone
 from datetime import datetime, date
 from projects.models import Project
 from tasks.models import Task
-from django.contrib.auth.models import User
+#from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Q
 import json
@@ -226,7 +228,7 @@ from django.views.decorators.http import require_POST
 import json
 from tasks.models import Task
 from projects.models import Project
-from django.contrib.auth.models import User
+#from django.contrib.auth.models import User
 
 @csrf_exempt
 @require_POST
@@ -728,7 +730,7 @@ from django.utils import timezone
 from django.db.models import Q
 from projects.models import Project
 from tasks.models import Task
-from django.contrib.auth.models import User
+#from django.contrib.auth.models import User
 import json
 
 @require_GET
@@ -923,7 +925,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 import json
 from tasks.models import Task
-from django.contrib.auth.models import User
+#from django.contrib.auth.models import User
 from django.utils import timezone
 
 # Add this view for getting task details
@@ -1066,7 +1068,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 import json
 from tasks.models import Task
-from django.contrib.auth.models import User
+#from django.contrib.auth.models import User
 from django.utils import timezone
 
 # Add this view for getting task details

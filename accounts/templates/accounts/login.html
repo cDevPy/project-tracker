@@ -1,20 +1,81 @@
-{% extends 'base.html' %} {% block content %}
-<h2 class="justify-content-center">Login</h2>
-<div class="form-container justify-content-center">
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="{% static 'css/login.css'%}">
+  <title>Login</title>
+</head>
+<body>
+  <main>
+    <div class="auth-container">
+      <div class="form-box">
+        <h2>Login</h2>
+
+        <!-- ERROR MESSAGE INDICATOR -->
     {% if template_data.error %}
-    <div class="alert-danger alert">{{ template_data.error }}</div>
+            <div class="alert alert-danger" role="alert">
+                {{ template_data.error }}
+            </div>
     {% endif %}
-    <form method="POST" class="flex-form">
-        {% csrf_token %}
-        <div>
-            <label class="form-label" for="username">Username</label>
-            <input id="username" type="text" name="username" autofocus required autocomplete="username" class="form-input">
-        </div>
-        <div>
-            <label class="form-label" for="password">Password</label>
-            <input id="password" type="password" name="password" required autocomplete="current-password" class="form-input">
-        </div>
-        <button type="submit" class="auth-btn text-white">Login</button>
-    </form>
-</div>
-{% endblock content %}
+        <form method="POST">
+          
+            {% csrf_token %}
+
+          <div class="md-input">
+            <input type="email" id="email" name="email" required />
+            <label for="email">Email</label>
+          </div>
+
+          
+          <div class="md-input password-wrapper">
+            <input type="password" id="password" name="password" required />
+            <label for="password">Password</label>
+
+            
+            <span class="toggle-password" role="button" tabindex="0" aria-label="Show password">
+              <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"></path>
+              </svg>
+            </span>
+          </div>
+
+          <button type="submit" class="login-btn">Log in</button>
+          <p>Forgot your password? <a class="reg" href="{% url 'password_reset_request' %}">Reset</a></p>
+
+          <p>Or continue with:</p>
+          <button type="button" class="google-btn">
+            <img src="https://img.icons8.com/color/48/google-logo.png" alt="google-logo" />
+            <strong>Sign in with Google</strong>
+          </button>
+
+          <p>Don’t have an account? <a class="reg" href="#">Register</a></p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <p>© 2025 Project Tracker. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-icons">
+        <a href="#"><img src="https://img.icons8.com/ios-filled/24/facebook-new.png" alt="facebook" /></a>
+        <a href="#"><img src="https://img.icons8.com/ios-filled/24/twitterx--v1.png" alt="twitter" /></a>
+        <a href="#"><img src="https://img.icons8.com/ios-filled/24/linkedin.png" alt="linkedin" /></a>
+        <a href="#"><img src="https://img.icons8.com/ios-filled/24/github.png" alt="github" /></a>
+      </div>
+    </div>
+  </footer>
+  <script src="{% static 'js/login.js'%}"></script>
+</body>
+</html>
