@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Create New Project</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="qa-btn">Create Project</button>
+        <a href="{% url 'dashboard' %}" class="qa-btn" style="background:transparent">Cancel</a>
+    </form>
+</div>
+{% endblock %}

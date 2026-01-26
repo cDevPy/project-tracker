@@ -3,67 +3,432 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{template_data.title}}</title>
-    <link rel="stylesheet" href="../../static/css/land-style.css">
+    <title>SwyftTask - Task Management Made Easy</title>
+    <link rel="stylesheet" href="static/css/land-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <nav>
-        <h1>PROJECT TRACKER</h1>
-        <ul>
-            <li><a href="{% url 'home.landing' %}">Home</a></li>
-            <li><a href="#">About</a></li>
-            {% if user.is_authenticated %}
-            <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
-            {% else %}
-            <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
-            {% endif %}
-        </ul>
-    </nav>
-    <main>
-        <div class="left">
-            <h1>Project Tracker</h1>
-            <p>Manage your projects and tasks efficiently</p>
-            <a href="{% url 'accounts.access' %}">Get Started</a>
-        </div>
-        <div class="right">
-            <nav>
-                <ul class="ms">
-                    <li></li>
-                    <li></li>
-                    <li></li>
-                </ul>
-            </nav>
-            <div class="main">
-                <div class="check-list">
-                    <div class="line"></div>
-                    <div class="check-item">
-                        <img src="../../static/img/checkbox.png" alt="" style="width: 30px; height: 17px;">
-                        <div class="c1"></div>
-                    </div>
-                    <div class="check-item">
-                        <img src="../../static/img/checkbox.png" alt="" style="width: 30px; height: 17px;">
-                        <div class="c2"></div>
-                    </div>
-                    <div class="check-item">
-                        <img src="../../static/img/checkbox.png" alt="" style="width: 30px; height: 17px;">
-                        <div class="c3"></div>
-                    </div>
-                    <div class="check-item">
-                        <img src="../../static/img/checkbox.png" alt="" style="width: 30px; height: 17px;">
-                        <div class="c1"></div>
-                    </div>
-                    <div class="check-item">
-                        <img src="../../static/img/checkbox.png" alt="" style="width: 30px; height: 17px;">
-                        <div class="c4"></div>
-                    </div>
-                    <div class="line1"></div>
+    <!-- Navigation -->
+    <nav class="landing-nav">
+        <div class="nav-container">
+            <div class="brand">
+                <div class="logo-circle">
+                    <i class="fas fa-rocket"></i>
                 </div>
-                <div class="stats">
-                    <img src="../../static/img/pie.png" alt="Pie Chart" style="width: 170px; height: 100px;">
-                    <img src="../../static/img/chart.png" alt="Statistics Chart" style="width: 160px; height: 100px; margin-left: 10px;">
+                <h1>SwyftTask</h1>
+            </div>
+            
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how-it-works">How It Works</a></li>
+                {% if user.is_authenticated %}
+                <li><a href="{% url 'home.dashboard' %}" class="dashboard-link">Go to Dashboard <i class="fas fa-arrow-right"></i></a></li>
+                {% endif %}
+            </ul>
+            
+            <div class="nav-actions">
+                {% if user.is_authenticated %}
+                <a href="{% url 'home.dashboard' %}" class="get-started-btn">Dashboard</a>
+                <a href="{% url 'accounts.logout' %}" class="sign-in-btn">Logout</a>
+                {% else %}
+                <a href="{% url 'accounts.access' %}" class="sign-in-btn">Sign In</a>
+                <a href="{% url 'accounts.access' %}" class="get-started-btn">Get Started</a>
+                {% endif %}
+                <button class="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span><i class="fas fa-bolt"></i> Efficient Task Management</span>
+                </div>
+                <h1 class="hero-title">Manage Your Projects,<br><span class="gradient-text">Swyftly</span></h1>
+                <p class="hero-subtitle">SwyftTask helps you organize tasks, track progress, and collaborate efficiently in one unified workspace. Perfect for teams and individuals.</p>
+                
+                <div class="hero-actions">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'home.dashboard' %}" class="primary-cta">
+                        <span>Go to Dashboard</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    {% else %}
+                    <a href="{% url 'accounts.access' %}" class="primary-cta">
+                        <span>Get Started Free</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                    <a href="#features" class="secondary-cta">
+                        <i class="fas fa-eye"></i>
+                        <span>View Features</span>
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <h3>100%</h3>
+                        <p>Free to Start</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>24/7</h3>
+                        <p>Available</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Unlimited</h3>
+                        <p>Basic Tasks</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="dashboard-preview">
+                    <div class="dashboard-header">
+                        <div class="dashboard-nav">
+                            <div class="project-title">
+                                <div class="color-dot" style="background: #00ff9d;"></div>
+                                <span>Marketing Campaign</span>
+                            </div>
+                            <div class="dashboard-actions">
+                                <button class="preview-btn"><i class="far fa-user"></i></button>
+                                <button class="preview-btn"><i class="far fa-comment"></i></button>
+                                <button class="preview-btn"><i class="far fa-chart-bar"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-content">
+                        <!-- Kanban Preview -->
+                        <div class="preview-kanban">
+                            <div class="preview-column todo">
+                                <div class="preview-col-header">
+                                    <h4>To Do</h4>
+                                    <span class="task-count">3</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox checked"></div>
+                                    <span>Design Review</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox"></div>
+                                    <span>Content Planning</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox"></div>
+                                    <span>Team Sync</span>
+                                </div>
+                            </div>
+                            
+                            <div class="preview-column progress">
+                                <div class="preview-col-header">
+                                    <h4>In Progress</h4>
+                                    <span class="task-count">2</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox"></div>
+                                    <span>Social Media Posts</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox"></div>
+                                    <span>Email Campaign</span>
+                                </div>
+                            </div>
+                            
+                            <div class="preview-column review">
+                                <div class="preview-col-header">
+                                    <h4>Review</h4>
+                                    <span class="task-count">1</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox"></div>
+                                    <span>Blog Article</span>
+                                </div>
+                            </div>
+                            
+                            <div class="preview-column done">
+                                <div class="preview-col-header">
+                                    <h4>Done</h4>
+                                    <span class="task-count">4</span>
+                                </div>
+                                <div class="preview-task">
+                                    <div class="task-checkbox checked"></div>
+                                    <span>Website Update</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Preview -->
+                        <div class="preview-stats">
+                            <div class="preview-chart">
+                                <div class="chart-bar" style="height: 60%;"></div>
+                                <div class="chart-bar" style="height: 80%;"></div>
+                                <div class="chart-bar" style="height: 40%;"></div>
+                                <div class="chart-bar" style="height: 90%;"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </main>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features-section">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-subtitle">Why Choose SwyftTask</span>
+                <h2 class="section-title">Everything You Need for <span class="gradient-text">Productive Work</span></h2>
+                <p class="section-description">From task management to team collaboration, we've got you covered.</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <h3>Task Management</h3>
+                    <p>Create, assign, and track tasks with ease. Set deadlines, priorities, and status updates.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-project-diagram"></i>
+                    </div>
+                    <h3>Project Organization</h3>
+                    <p>Organize tasks into projects. Visualize progress with Kanban boards and timelines.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Team Collaboration</h3>
+                    <p>Work together seamlessly. Assign tasks, add comments, and share files in real-time.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3>Progress Tracking</h3>
+                    <p>Monitor project progress with detailed analytics and completion statistics.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <h3>Smart Notifications</h3>
+                    <p>Get notified about deadlines, task assignments, and important updates.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Responsive Design</h3>
+                    <p>Access your tasks from any device. Works perfectly on desktop, tablet, and mobile.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="section-container">
+            <div class="section-header">
+                <span class="section-subtitle">Get Started in Minutes</span>
+                <h2 class="section-title">How <span class="gradient-text">SwyftTask</span> Works</h2>
+            </div>
+            
+            <div class="steps-container">
+                <div class="step">
+                    <div class="step-number">01</div>
+                    <div class="step-content">
+                        <h3>Sign Up Free</h3>
+                        <p>Create your account with just an email. No credit card required. Start with our free plan.</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">02</div>
+                    <div class="step-content">
+                        <h3>Create Your First Project</h3>
+                        <p>Add a project, create tasks, set deadlines, and invite team members if needed.</p>
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">03</div>
+                    <div class="step-content">
+                        <h3>Stay Productive</h3>
+                        <p>Track progress, manage deadlines, and collaborate with your team all in one place.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="steps-cta">
+                {% if user.is_authenticated %}
+                <a href="{% url 'home.dashboard' %}" class="primary-cta large">
+                    <span>Continue to Dashboard</span>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+                {% else %}
+                <a href="{% url 'accounts.access' %}" class="primary-cta large">
+                    <span>Start Free Now</span>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Simple Footer -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <div class="brand">
+                    <div class="logo-circle">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h2>SwyftTask</h2>
+                </div>
+                <p class="footer-tagline">Task management for modern teams and individuals.</p>
+                <p class="footer-email">
+                    <i class="fas fa-envelope"></i>
+                    <a href="mailto:contact@swyfttask.com">contact@swyfttask.com</a>
+                </p>
+            </div>
+            
+            <div class="footer-links">
+                <div class="link-group">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#how-it-works">How It Works</a>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'home.dashboard' %}">Dashboard</a>
+                    {% else %}
+                    <a href="{% url 'accounts.access' %}">Sign Up</a>
+                    <a href="{% url 'accounts.access' %}">Sign In</a>
+                    {% endif %}
+                </div>
+                
+                <div class="link-group">
+                    <h4>Account</h4>
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'home.dashboard' %}">My Dashboard</a>
+                    <a href="{% url 'accounts.logout' %}">Logout</a>
+                    {% else %}
+                    <a href="{% url 'accounts.access' %}">Create Account</a>
+                    <a href="{% url 'accounts.access' %}">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2026 SwyftTask. Task management made simple.</p>
+            <p>Made with <i class="fas fa-heart" style="color: #ff4757;"></i> for productive teams</p>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        document.querySelector('.mobile-menu-btn').addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event bubbling
+            const navLinks = document.querySelector('.nav-links');
+            navLinks.classList.toggle('active');
+            
+            // Toggle body scroll lock
+            document.body.classList.toggle('menu-open');
+        });
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navLinks = document.querySelector('.nav-links');
+            const mobileBtn = document.querySelector('.mobile-menu-btn');
+            
+            if (navLinks.classList.contains('active') && 
+                !navLinks.contains(event.target) && 
+                !mobileBtn.contains(event.target)) {
+                navLinks.classList.remove('active');
+                document.body.classList.remove('menu-open');
+            }
+        });
+
+        // Close menu when clicking a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function() {
+                const navLinks = document.querySelector('.nav-links');
+                if (navLinks.classList.contains('active')) {
+                    navLinks.classList.remove('active');
+                    document.body.classList.remove('menu-open');
+                }
+            });
+        });
+        
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const targetId = this.getAttribute('href');
+                if (targetId === '#' || targetId.startsWith('#')) {
+                    e.preventDefault();
+                    
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        window.scrollTo({
+                            top: targetElement.offsetTop - 80,
+                            behavior: 'smooth'
+                        });
+                        
+                        // Close mobile menu if open
+                        document.querySelector('.nav-links').classList.remove('active');
+                    }
+                }
+            });
+        });
+        
+        // Animate chart bars on scroll
+        function animateChartBars() {
+            const chartBars = document.querySelectorAll('.chart-bar');
+            if (chartBars.length > 0) {
+                const heroSection = document.querySelector('.hero-section');
+                const rect = heroSection.getBoundingClientRect();
+                
+                if (rect.top < window.innerHeight && rect.bottom >= 0) {
+                    chartBars.forEach((bar, index) => {
+                        setTimeout(() => {
+                            bar.style.height = bar.getAttribute('data-height') || bar.style.height;
+                        }, index * 200);
+                    });
+                }
+            }
+        }
+        
+        // Set initial heights for chart bars
+        document.addEventListener('DOMContentLoaded', function() {
+            const chartBars = document.querySelectorAll('.chart-bar');
+            const heights = ['60%', '80%', '40%', '90%'];
+            
+            chartBars.forEach((bar, index) => {
+                bar.setAttribute('data-height', heights[index]);
+                bar.style.height = '0%';
+                bar.style.background = `linear-gradient(to top, ${['#00ff9d', '#00aaff', '#ffa502', '#8b5cf6'][index]}, ${['#00aaff', '#007bff', '#ff6b6b', '#3b82f6'][index]})`;
+            });
+            
+            // Animate on load
+            setTimeout(animateChartBars, 500);
+            
+            // Animate on scroll
+            window.addEventListener('scroll', animateChartBars);
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,289 @@
+/* Pinned Projects with scrolling */
+.pinned-projects {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    margin: 20px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 170, 255, 0.3) rgba(0, 0, 0, 0.1);
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    max-height: 200px; /* Increased height */
+}
+
+/* Custom scrollbar for Webkit browsers */
+.pinned-projects::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.pinned-projects::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.pinned-projects::-webkit-scrollbar-thumb {
+    background: rgba(0, 170, 255, 0.5);
+    border-radius: 4px;
+}
+
+.pinned-projects::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 170, 255, 0.8);
+}
+
+/* Individual project card */
+.pinned-project {
+    min-width: 280px; /* Slightly wider cards */
+    max-width: 280px;
+    height: 160px; /* Fixed height */
+    padding: 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .05);
+    border-left: 4px solid #00ff9d;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0; /* Prevent cards from shrinking */
+}
+
+/* Project card content */
+.pinned-project h4 {
+    margin: 0 0 8px;
+    font-size: 16px; /* Slightly larger */
+    color: #fff;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pinned-project small {
+    display: block;
+    margin-bottom: 12px;
+    opacity: .8;
+    font-size: 13px;
+}
+
+/* Make "View All" more prominent */
+.view-all-projects {
+    background: rgba(0, 170, 255, 0.15) !important;
+    border-left: 4px solid #00aaff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    min-height: 160px;
+}
+
+.view-all-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.view-all-projects h4 {
+    color: #00aaff !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin: 0 !important;
+}
+
+.view-all-arrow {
+    font-size: 24px;
+    color: #00aaff;
+    animation: bounceRight 2s infinite;
+}
+
+/* Progress bar */
+.progress {
+    height: 6px;
+    background: #333;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: auto; /* Push to bottom */
+}
+
+/* Pinned Projects Container */
+.pinned-projects {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    margin: 20px 0 30px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 170, 255, 0.5) rgba(0, 0, 0, 0.2);
+    -webkit-overflow-scrolling: touch;
+    min-height: 180px;
+}
+
+/* Custom scrollbar */
+.pinned-projects::-webkit-scrollbar {
+    height: 10px;
+}
+
+.pinned-projects::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 5px;
+    margin: 0 10px;
+}
+
+.pinned-projects::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, rgba(0, 170, 255, 0.5), rgba(0, 170, 255, 0.8));
+    border-radius: 5px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.pinned-projects::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, rgba(0, 170, 255, 0.8), #00aaff);
+}
+
+/* Hide scrollbar on mobile */
+@media (max-width: 768px) {
+    .pinned-projects {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .pinned-projects::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Individual Project Card */
+.pinned-project {
+    min-width: 280px;
+    max-width: 280px;
+    height: 160px;
+    padding: 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    border-left: 4px solid #00ff9d;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.pinned-project:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 170, 255, 0.2);
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+}
+
+.pinned-project h4 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 30px; /* Space for menu button */
+}
+
+.pinned-project small {
+    display: block;
+    margin-bottom: 15px;
+    opacity: 0.8;
+    font-size: 13px;
+    color: #ccc;
+}
+
+/* Progress bar */
+.progress {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: auto;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff9d, #00aaff);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+/* Status colors */
+.pinned-project.urgent {
+    border-left-color: #ff4757;
+}
+
+.pinned-project.urgent .progress-fill {
+    background: linear-gradient(90deg, #ff4757, #ff6b6b);
+}
+
+.pinned-project.warning {
+    border-left-color: #ffa502;
+}
+
+.pinned-project.warning .progress-fill {
+    background: linear-gradient(90deg, #ffa502, #ffd166);
+}
+
+/* View All Button */
+.view-all-projects {
+    background: linear-gradient(135deg, rgba(0, 170, 255, 0.15), rgba(0, 170, 255, 0.1)) !important;
+    border-left: 4px solid #00aaff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    min-height: 160px;
+    transition: all 0.3s ease;
+}
+
+.view-all-projects:hover {
+    background: linear-gradient(135deg, rgba(0, 170, 255, 0.25), rgba(0, 170, 255, 0.15)) !important;
+    transform: translateY(-5px);
+}
+
+.view-all-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.view-all-projects h4 {
+    color: #00aaff !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    margin: 0 !important;
+    padding-right: 0;
+}
+
+.view-all-projects small {
+    color: #88d3ff !important;
+    margin-bottom: 0;
+}
+
+.view-all-arrow {
+    font-size: 24px;
+    color: #00aaff;
+    animation: bounceRight 2s infinite;
+}
+
+@keyframes bounceRight {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(5px); }
+}

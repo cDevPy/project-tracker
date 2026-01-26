@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="task-details-page">
+    <div class="task-header-bar">
+        <a href="{% url 'dashboard' %}" class="qa-btn back-btn">
+            <i class="fa fa-arrow-left"></i> Back
+        </a>
+        <div class="task-title-wrapper">
+            <h1 class="task-title">{{ task.title }}</h1>
+            <span class="task-id muted">#TASK-{{ task.id }}</span>
+        </div>
+    </div>
+
+    <div class="task-main-grid">
+        <div class="task-left">
+            <div class="task-meta-bar">
+                <div class="status-select {{ task.status }}">{{ task.get_status_display }}</div>
+                <div class="priority-badge">Priority</div>
+                {% if task.due_date %}
+                <div class="due-date">
+                    <i class="fa fa-clock"></i>
+                    <span>Due {{ task.due_date }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="assignees-section">
+                <strong>Assignees</strong>
+                <div class="avatar-group">
+                    {% if task.assigned_to %}
+                    <div class="avatar online">{{ task.assigned_to.first_name|first|upper }}</div>
+                    <span>{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}</span>
+                    {% else %}
+                    <div class="avatar">?</div>
+                    <span>Unassigned</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="project-link">
+                <i class="fa fa-briefcase"></i>
+                <a href="#">{{ task.project.name }}</a>
+            </div>
+
+            <section class="task-section">
+                <h3>Description</h3>
+                <div class="rich-text">
+                    {{ task.description|linebreaks }}
+                </div>
+            </section>
+        </div>
+
+        <aside class="task-sidebar">
+            <div class="sidebar-panel">
+                <h4>Dates</h4>
+                <div class="date-field"><label>Created</label>{{ task.created_at|date:"M d, Y" }}</div>
+                {% if task.due_date %}
+                <div class="date-field"><label>Due Date</label>{{ task.due_date }}</div>
+                {% endif %}
+            </div>
+
+            <div class="sidebar-panel">
+                <h4>Info</h4>
+                <div class="info-item"><span>Created by</span><strong>{{ task.project.owner.get_full_name|default:task.project.owner.username }}</strong></div>
+                <div class="info-item"><span>Project</span><strong>{{ task.project.name }}</strong></div>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}

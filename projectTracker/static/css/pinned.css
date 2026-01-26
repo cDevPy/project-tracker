@@ -1,0 +1,53 @@
+/* Add to dashboard.css */
+
+/* Limit pinned projects container */
+.pinned-projects {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 16px 0;
+  margin: 20px 0;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  
+  /* Ensure only 4 projects are fully visible */
+  max-width: calc(100vw - 60px);
+}
+
+.pinned-projects::-webkit-scrollbar {
+  display: none;
+}
+
+/* Style for individual project cards */
+.pinned-project {
+  min-width: 240px;
+  max-width: 240px;
+  flex-shrink: 0;
+  padding: 18px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.05);
+  border-left: 4px solid #00ff9d;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ensure View All card is also properly sized */
+.pinned-project.view-all-projects {
+  min-width: 200px;
+  max-width: 200px;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .pinned-project {
+    min-width: 280px;
+    max-width: 280px;
+  }
+  
+  .pinned-project.view-all-projects {
+    min-width: 240px;
+    max-width: 240px;
+  }
+}

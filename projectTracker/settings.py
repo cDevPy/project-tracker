@@ -128,4 +128,12 @@ STATICFILES_DIRS = [BASE_DIR / 'projectTracker/static/']
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Add the custom User model
-# AUTH_USER_MODEL = 'accounts.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUser'
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "swyfttask@gmail.com"
+EMAIL_HOST_PASSWORD = "igsr zpab gweo ohqc"
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL ="SwyftTask <noreply@swyfttask.com>"
+from_email ="SwyftTask <noreply@swyfttask.com>"

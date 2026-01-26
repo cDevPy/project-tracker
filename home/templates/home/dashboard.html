@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=3" />
+  <meta name="robots" content="noindex, nofollow">
+  <title>SwyftTask — Dashboard</title>
+  <link rel="icon" href="{% static 'image/logo.png' %}"></link>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <!-- <link rel="stylesheet" href="{% static 'css/extra-dashboard.css' %}"> -->
+  <script src="{% static 'js/dashboard.js' %}"></script>
+  <style>
+    /* Fallback for Font Awesome */
+    .fas::before, .fa::before, .far::before, .fa-solid::before {
+      font-family: "Font Awesome 6 Free" !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="loading-overlay" id="pageLoader">
+    <div class="loader"></div>
+  </div>
+
+  <div class="container">
+    <header class="header">
+      <div class="header-left">
+        <button class="hamburger" id="hamburgerBtn" aria-label="Open menu"><i class="fa fa-bars"></i></button>
+        <div style="cursor:pointer;" class="brand">
+          <img class="site-logo" src="{% static 'image/logo.png' %}" alt="logo">
+          <a href="{% url 'home.landing' %}"><h1>SwyftTask</h1></a>
+        </div>
+      </div>
+
+      <nav class="header-right">
+        <button id="desktopSearchToggle" class="icon-btn desktop-search-toggle" aria-label="Open search">
+          <i class="fas fa-search"></i>
+          <span class="tooltip">Search</span>
+        </button>
+
+        <a class="create-btn desktop-only" id="createBtn">
+          <i class="fas fa-plus create-icon"></i>
+          <span class="create-text">Create</span>
+        </a>
+
+        <!-- <button class="header-create-mobile" id="newTaskBtnMobile" aria-label="Create">
+          +
+        </button> -->
+
+        <div class="desktop-search-container" id="desktopSearchContainer">
+          <div class="desktop-search-wrapper">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="desktopSearchInput" class="desktop-search-bar"
+              placeholder="Search tasks, projects, people..." autocomplete="off">
+          </div>
+        </div>
+
+        <div class="icon-wrapper">
+          <button class="icon-btn" id="homeBtn" aria-label="Home">
+            <i class="fa fa-house"></i>
+            <span class="tooltip">Home</span>
+          </button>
+        </div>
+
+        <div class="icon-wrapper">
+          <button class="icon-btn" aria-haspopup="true" id="notificationBtn">
+            <i class="fa-regular fa-bell"></i>
+            <span class="tooltip">Notifications</span>
+            <span class="notif-badge" id="notifBadge">0</span>
+          </button>
+        </div>
+
+        <div class="icon-wrapper account-wrapper">
+          <button id="accountBtn">
+            <div id="accountAvatar" class="account-avatar">{{ user.first_name|first|default:user.username|first|upper }}
+            </div>
+          </button>
+          <span class="tooltip">Account</span>
+          <ul class="dropdown-menu" id="accountMenu">
+            <li><i class="fa fa-user"></i> Profile</li>
+            <li><i class="fa fa-gear"></i> Settings</li>
+            <li><i class="fa fa-bell"></i> Notifications</li>
+            <li><i class="fa fa-credit-card"></i> Billing</li>
+            <li><i class="fa fa-users"></i> Team</li>
+            <li><i class="fa fa-moon"></i> Appearance</li>
+            <li><i class="fa fa-circle-question"></i> Help & Support</li>
+            <li><i class="fa fa-sign-out"></i> Logout</li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+
+    <aside class="aside" id="sidebar">
+      <ul>
+        <li class="active" data-page="overview"><i class="fa-solid fa-chart-line"></i> Overview</li>
+        <li data-page="tasks"><i class="fa-solid fa-list-check"></i> Tasks</li>
+        <li data-page="teams"><i class="fa-solid fa-users"></i> Teams</li>
+        <!-- <li data-page="calendar"><i class="fa-solid fa-calendar-days"></i> Calendar</li> -->
+        <!-- <li data-page="reports"><i class="fa-solid fa-chart-pie"></i> Reports</li> -->
+        <!-- <li data-page="files"><i class="fa-solid fa-folder"></i> Files</li> -->
+        <li data-page="settings"><i class="fa-solid fa-gear"></i> Settings</li>
+      </ul>
+    </aside>
+
+    <main class="main" id="mainContent">
+      <div id="originalDashboardContent">
+
+        <div class="mobile-search-section">
+          <div class="mobile-search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="mobileSearchInput" class="mobile-search-bar"
+              placeholder="Search tasks, projects, people..." autocomplete="off">
+          </div>
+        </div>
+
+        <div class="welcome-row">
+          <div class="title">
+            <h2 id="dynamicGreeting">{{ default_greeting }}, {{ user.first_name|default:user.username }}</h2>
+            <div class="muted">Today • {{ today_formatted }} <span class="weather">· 24°C Cloudy</span></div>
+          </div>
+
+          <div class="quick-actions" aria-label="Quick actions">
+            <button class="qa-btn" id="newTaskBtn"><i class="fa fa-plus" style="margin-right:8px"></i>New Task</button>
+            <button class="qa-btn" id="newProjectBtn"><i class="fa fa-briefcase" style="margin-right:8px"></i>New
+              Project</button>
+            <button class="qa-btn" id="inviteBtn"><i class="fa fa-user-plus"
+                style="margin-right:8px"></i>Invite</button>
+          </div>
+        </div>
+
+        {% with limited_projects=projects|slice:":4" %}
+        <section class="pinned-projects">
+          <!-- Show only first 4 projects -->
+          {% for project in limited_projects %}
+          <div class="pinned-project {{ project.css_class }}" data-project-id="{{ project.id }}"
+            onclick="openProjectDetails({{ project.id }}, '{{ project.name|escapejs }}')">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <h4>{{ project.name|truncatechars:20 }}</h4>
+              <button class="project-menu-btn"
+                onclick="event.stopPropagation(); showProjectContextMenu(event, {{ project.id }})">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+            </div>
+            <small>{{ project.progress }}% complete • {{ project.task_count }} task{{ project.task_count|pluralize }}</small>
+            <div class="progress">
+              <div class="progress-fill" style="width:{{ project.progress }}%"></div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="pinned-project" onclick="showNewProjectForm()">
+            <h4><i class="fas fa-plus-circle"></i> Create First Project</h4>
+            <small>Click to create your first project</small>
+            <div class="progress">
+              <div class="progress-fill" style="width:0%"></div>
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Always show View All button if there are more than 4 projects -->
+          {% if total_projects_count > 4 %}
+          <div class="pinned-project view-all-projects" onclick="showAllProjects()">
+            <div class="view-all-content">
+              <h4><i class="fas fa-th-list"></i> View All Projects</h4>
+              <small>See all {{ total_projects_count }} project{{ total_projects_count|pluralize }}</small>
+              <div class="view-all-arrow">
+                <i class="fas fa-arrow-right"></i>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </section>
+        {% endwith %}
+
+        <div class="main-inner">
+          <div>
+            <section class="overview-widgets" aria-label="Overview">
+              <div class="widget-card">
+                <h3 id="activeProjectsCount">{{ active_projects_count }}</h3>
+                <p>Active Projects</p>
+              </div>
+              <div class="widget-card">
+                <h3 id="tasksDueCount">{{ tasks_due_count }}</h3>
+                <p>Tasks Due</p>
+              </div>
+              <div class="widget-card">
+                <h3 id="overdueCount">{{ overdue_count }}</h3>
+                <p>Overdue Items</p>
+              </div>
+              <div class="widget-card">
+                <h3 id="teamCount">{{ team_count }}</h3>
+                <p>Team Members</p>
+              </div>
+            </section>
+
+            <section class="panel tasks-due-today">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3>Tasks Due Today 
+                  {% if tasks_due_today|length > 0 %}<span class="inbox-badge" id="dueTodayCount">{{ tasks_due_today|length }}</span>{% endif %}
+                </h3>
+                <a href="#" class="btn-link" id="viewAllTasksToday" onclick="showTasksPage()">View all</a>
+              </div>
+              <ul class="due-list" id="dueTodayList">
+                {% for task in tasks_due_today|slice:":5" %}
+                <li data-task-id="{{ task.id }}">
+                  <span>{{ task.title }}</span>
+                  <strong class="urgent">Due Today</strong>
+                </li>
+                {% empty %}
+                <li><span>No tasks due today</span></li>
+                {% endfor %}
+                <!-- Show "More tasks" indicator if there are more than 5 -->
+                {% if tasks_due_today|length > 5 %}
+                <li class="more-tasks-indicator" id="moreTasksIndicator">
+                  <span>+{{ tasks_due_today|length|add:"-5" }} more tasks</span>
+                  <button class="show-more-btn" onclick="showAllDueTodayTasks()">Show all</button>
+                </li>
+                {% endif %}
+              </ul>
+
+              <!-- Hidden container for all tasks (will be shown when "Show all" is clicked) -->
+              <ul class="due-list all-tasks" id="allDueTodayTasks" style="display: none;">
+                {% for task in tasks_due_today %}
+                <li data-task-id="{{ task.id }}">
+                  <span>{{ task.title }}</span>
+                  <strong class="urgent">Due Today</strong>
+                </li>
+                {% endfor %}
+                <li>
+                  <button class="show-less-btn" onclick="showLessDueTodayTasks()">Show less</button>
+                </li>
+              </ul>
+            </section>
+
+            <section class="kanban-preview" aria-label="Kanban preview">
+              <h3>Project Board</h3>
+              <div class="kanban-board" id="kanbanBoard" role="list">
+                <div class="kanban-column" data-column="todo" aria-label="To Do column">
+                  <h4>To Do</h4>
+                  {% for task in todo_tasks %}
+                  <div class="kanban-task" role="listitem" data-task-id="{{ task.id }}">
+                    {{ task.title }}
+                    {% if task.assigned_to %}
+                    <small>@{{ task.assigned_to.username }}</small>
+                    {% endif %}
+                  </div>
+                  {% empty %}
+                  <div class="kanban-task empty">No tasks</div>
+                  {% endfor %}
+                </div>
+
+                <div class="kanban-column" data-column="inprogress" aria-label="In progress column">
+                  <h4>In Progress</h4>
+                  {% for task in inprogress_tasks %}
+                  <div class="kanban-task" role="listitem" data-task-id="{{ task.id }}">
+                    {{ task.title }}
+                    {% if task.assigned_to %}
+                    <small>@{{ task.assigned_to.username }}</small>
+                    {% endif %}
+                  </div>
+                  {% empty %}
+                  <div class="kanban-task empty">No tasks</div>
+                  {% endfor %}
+                </div>
+
+                <div class="kanban-column" data-column="review" aria-label="Review column">
+                  <h4>Review</h4>
+                  {% for task in review_tasks %}
+                  <div class="kanban-task" role="listitem" data-task-id="{{ task.id }}">
+                    {{ task.title }}
+                    {% if task.assigned_to %}
+                    <small>@{{ task.assigned_to.username }}</small>
+                    {% endif %}
+                  </div>
+                  {% empty %}
+                  <div class="kanban-task empty">No tasks</div>
+                  {% endfor %}
+                </div>
+
+                <div class="kanban-column" data-column="done" aria-label="Done column">
+                  <h4>Done</h4>
+                  {% for task in done_tasks %}
+                  <div class="kanban-task complete" role="listitem" data-task-id="{{ task.id }}">
+                    {{ task.title }}
+                    {% if task.assigned_to %}
+                    <small>@{{ task.assigned_to.username }}</small>
+                    {% endif %}
+                  </div>
+                  {% empty %}
+                  <div class="kanban-task empty">No tasks</div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div style="margin-top:8px;">
+                <a href="#" class="btn-link" id="openBoard" onclick="showTasksPage()">Open full board</a>
+              </div>
+            </section>
+
+            <!-- <section class="panel sprint-progress">
+              <div style="display:flex;align-items:center;gap:24px;">
+                <div class="sprint-ring">
+                  <svg width="90" height="90" viewBox="0 0 36 36">
+                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
+                      stroke="#333" stroke-width="4" />
+                    <path stroke-dasharray="68, 100"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none"
+                      stroke="#00ff9d" stroke-width="4" stroke-linecap="round" />
+                  </svg>
+                  <div class="ring-text">68%</div>
+                </div>
+                <div>
+                  <h3 style="margin:0;">Sprint 12</h3>
+                  <p style="margin:4px 0 0;opacity:0.8;">5 days left • Ends Nov 25</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel milestones">
+              <h3>Upcoming Milestones</h3>
+              <div class="milestone-list">
+                <div><span>Beta Launch</span><strong style="color:#00ff9d">4 days</strong></div>
+                <div><span>Client Demo</span><strong>Nov 25</strong></div>
+                <div><span>Phase 2 Kickoff</span><strong>Dec 1</strong></div>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Calendar preview">
+              <h3>Calendar (Preview)</h3>
+              <div class="calendar-grid" id="calendarGrid" aria-hidden="false">
+                <div class="calendar-cell">Sun<br><small class="muted">—</small></div>
+                <div class="calendar-cell">Mon<br><small class="muted">Sprint planning</small></div>
+                <div class="calendar-cell">Tue<br><small class="muted">Release</small></div>
+                <div class="calendar-cell">Wed<br><small class="muted">Design review</small></div>
+                <div class="calendar-cell">Thu<br><small class="muted">Client call</small></div>
+                <div class="calendar-cell">Fri<br><small class="muted">Deploy</small></div>
+                <div class="calendar-child">Sat<br><small class="muted">—</small></div>
+              </div>
+            </section>
+          </div> -->
+
+          <aside class="right-rail" aria-label="Right rail">
+            <div class="panel assigned-tasks" aria-live="polite">
+              <h3>Your Tasks
+                {% if your_tasks|length > 0 %}<span class="inbox-badge">{{ your_tasks|length }}</span>{% endif %}
+              </h3>
+              <ul>
+                {% for task in your_tasks %}
+                <li data-task-id="{{ task.id }}">
+                  <span class="task-title">{{ task.title }}</span>
+                  <small class="muted">
+                    {% if task.due_date %}
+                    {% if task.due_date == today %}due today
+                    {% elif task.due_date < today %}overdue {% else %}in {{ task.due_date|timeuntil:today }} {% endif %}
+                      {% else %} no deadline {% endif %} </small>
+                </li>
+                {% empty %}
+                <li><span class="task-title">No tasks assigned</span></li>
+                {% endfor %}
+              </ul>
+              <a href="#" class="btn-link" id="viewAllAssignedTasks" onclick="showTasksPage()">View all tasks</a>
+            </div>
+
+            <div class="panel activity-feed">
+              <h3>Recent Activity</h3>
+              <ul>
+                {% for task in recent_activity %}
+                <li>
+                  <strong>{{ task.assigned_to.first_name|default:task.assigned_to.username|default:"Someone" }}</strong>
+                  {{ task.get_status_display|lower }} <em>{{ task.title }}</em> —
+                  <span class="muted">{{ task.created_at|timesince }} ago</span>
+                </li>
+                {% empty %}
+                <li>No recent activity</li>
+                {% endfor %}
+              </ul>
+              <!-- <a href="#" class="btn-link">View activity log</a> -->
+            </div>
+
+            <div class="panel team-online">
+              <h3>Team Online ({{ team_members|length }}/{{ team_count }})</h3>
+              <div class="team-avatars">
+                {% for member in team_members %}
+                <div class="avatar online" title="{{ member.get_full_name|default:member.username }}">
+                  {{ member.first_name|first|default:member.username|first|upper }}
+                </div>
+                <span>{{ member.first_name|default:member.username|truncatechars:10 }}</span>
+                {% empty %}
+                <div class="avatar">?</div>
+                <span>No team members</span>
+                {% endfor %}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p>© 2026 SwyftTask. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <!-- <button class="floating-create" aria-label="Quick create">
+    <i class="fa-solid fa-plus"></i>
+  </button> -->
+
+  <!-- Templates -->
+  <template id="profile-template">
+    <div class="main-inner" style="display:flex;flex-direction:column;gap:20px;height:100%;">
+      <button id="backDashboardBtn" class="qa-btn" style="align-self:flex-start;">Back to Dashboard</button>
+
+      <div class="profile-scroll-container" style="flex:1; overflow-y:auto; padding-right:10px;">
+        <div class="profile-cards" style="display:flex;flex-wrap:wrap;gap:20px;margin-top:12px;">
+          <div class="panel" style="flex:1;min-width:280px;">
+            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3><i class="fa fa-user-circle"></i> Account Info</h3>
+              <button id="editAccountBtn" class="qa-btn"
+                style="background:#222;color:#fff;border:1px solid #fff;">Edit</button>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-id-badge"></i> Name</label>
+              <input type="text" value="Peter Example" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-envelope"></i> Email</label>
+              <input type="email" value="peter@example.com" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-user-circle"></i> Username</label>
+              <input type="text" value="peter123" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-briefcase"></i> Role</label>
+              <input type="text" value="Project Manager" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-phone"></i> Phone</label>
+              <input type="text" value="+234 123 4567" disabled>
+            </div>
+          </div>
+
+          <div class="panel" style="flex:1;min-width:280px;">
+            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3><i class="fa fa-shield-alt"></i> Security</h3>
+              <button id="editSecurityBtn" class="qa-btn"
+                style="background:#222;color:#fff;border:1px solid #fff;">Edit</button>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-key"></i> Password</label>
+              <input type="password" value="password123" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-shield-alt"></i> Two-Factor Auth</label>
+              <input type="text" value="Enabled" disabled>
+            </div>
+          </div>
+
+          <div class="panel" style="flex:1;min-width:280px;">
+            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h3><i class="fa fa-users"></i> Teams</h3>
+              <button id="editTeamsBtn" class="qa-btn"
+                style="background:#222;color:#fff;border:1px solid #fff;">Edit</button>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-users"></i> Teams</label>
+              <input type="text" value="Development, Marketing" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-user-tag"></i> Roles</label>
+              <input type="text" value="Member, Admin" disabled>
+            </div>
+          </div>
+
+          <div class="panel" style="flex:1;min-width:280px;">
+            <div class="panel-header">
+              <h3><i class="fa fa-plug"></i> API & Integrations</h3>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-key"></i> API Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" value="ABC123XYZ" disabled style="flex:1;">
+                <button class="qa-btn copy-api" style="background:#00aaff;color:#000;">Copy</button>
+              </div>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-plug"></i> Linked Accounts</label>
+              <input type="text" value="Google, Slack" disabled>
+            </div>
+          </div>
+
+          <div class="panel" style="flex:1;min-width:280px;">
+            <div class="panel-header">
+              <h3><i class="fa fa-credit-card"></i> Billing</h3>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-star"></i> Plan</label>
+              <input type="text" value="Pro" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-credit-card"></i> Payment</label>
+              <input type="text" value="Visa **** 4242" disabled>
+            </div>
+            <div class="field-group">
+              <label><i class="fa fa-history"></i> Last Payment</label>
+              <input type="text" value="15 Nov 2025" disabled>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="settings-template">
+    <div class="main-inner" style="display:flex;flex-direction:column;gap:20px;">
+      <button id="backDashboardBtn" class="qa-btn" style="align-self:flex-start;">Back to Dashboard</button>
+
+      <div class="settings-cards"
+        style="display:flex;flex-wrap:wrap;gap:20px;margin-top:12px; overflow:auto; max-height:80vh;">
+        <div class="panel" style="flex:1;min-width:280px; position:relative;">
+          <div class="panel-header">
+            <h3><i class="fa fa-cog"></i> General</h3>
+            <button class="qa-btn panel-edit"
+              style="position:absolute; top:12px; right:12px; background:#222; color:#fff; border:1px solid #fff;">Edit</button>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Workspace Name</label>
+              <input type="text" value="My Workspace" disabled>
+            </div>
+            <div class="field-group">
+              <label>Default Language</label>
+              <input type="text" value="English" disabled>
+            </div>
+            <div class="field-group">
+              <label>Timezone</label>
+              <input type="text" value="GMT+1" disabled>
+            </div>
+            <div class="field-group">
+              <label>Date Format</label>
+              <input type="text" value="DD/MM/YYYY" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px; position:relative;">
+          <div class="panel-header">
+            <h3><i class="fa fa-bell"></i> Notifications</h3>
+            <button class="qa-btn panel-edit"
+              style="position:absolute; top:12px; right:12px; background:#222; color:#fff; border:1px solid #fff;">Edit</button>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Email Notifications</label>
+              <input type="checkbox" disabled checked>
+            </div>
+            <div class="field-group">
+              <label>Push Notifications</label>
+              <input type="checkbox" disabled checked>
+            </div>
+            <div class="field-group">
+              <label>Frequency</label>
+              <select disabled>
+                <option selected>Instant</option>
+                <option>Daily</option>
+                <option>Weekly</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px; position:relative;">
+          <div class="panel-header">
+            <h3><i class="fa fa-lock"></i> Security & Privacy</h3>
+            <button class="qa-btn panel-edit"
+              style="position:absolute; top:12px; right:12px; background:#222; color:#fff; border:1px solid #fff;">Edit</button>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Password</label>
+              <input type="password" value="password123" disabled>
+            </div>
+            <div class="field-group">
+              <label>Two-Factor Auth</label>
+              <input type="text" value="Enabled" disabled>
+            </div>
+            <div class="field-group">
+              <label>Session Timeout</label>
+              <input type="text" value="30 min" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px; position:relative;">
+          <div class="panel-header">
+            <h3><i class="fa fa-link"></i> Connected Accounts</h3>
+            <button class="qa-btn panel-edit"
+              style="position:absolute; top:12px; right:12px; background:#222; color:#fff; border:1px solid #fff;">Edit</button>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Google</label>
+              <input type="text" value="Connected" disabled>
+            </div>
+            <div class="field-group">
+              <label>Slack</label>
+              <input type="text" value="Connected" disabled>
+            </div>
+            <div class="field-group">
+              <label>GitHub</label>
+              <input type="text" value="Not Connected" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px;">
+          <div class="panel-header">
+            <h3><i class="fa fa-credit-card"></i> Billing & Subscription</h3>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Plan</label>
+              <input type="text" value="Pro" disabled>
+            </div>
+            <div class="field-group">
+              <label>Payment Method</label>
+              <input type="text" value="Visa **** 4242" disabled>
+            </div>
+            <div class="field-group">
+              <label>Renewal Date</label>
+              <input type="text" value="15 Nov 2025" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px;">
+          <div class="panel-header">
+            <h3><i class="fa fa-puzzle-piece"></i> Integrations</h3>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Slack</label>
+              <input type="checkbox" disabled checked>
+            </div>
+            <div class="field-group">
+              <label>GitHub</label>
+              <input type="checkbox" disabled>
+            </div>
+            <div class="field-group">
+              <label>API Key</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" value="ABC123XYZ" disabled style="flex:1;">
+                <button class="qa-btn copy-api" style="background:#222;color:#fff;border:1px solid #fff;">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="flex:1;min-width:280px; position:relative;">
+          <div class="panel-header">
+            <h3><i class="fa fa-sliders-h"></i> Preferences</h3>
+            <button class="qa-btn panel-edit"
+              style="position:absolute; top:12px; right:12px; background:#222; color:#fff; border:1px solid #fff;">Edit</button>
+          </div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>Theme</label>
+              <select disabled>
+                <option selected>Light</option>
+                <option>Dark</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Default Dashboard</label>
+              <select disabled>
+                <option selected>Kanban</option>
+                <option>List</option>
+                <option>Calendar</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="notifications-template">
+    <div class="main-inner notif-main">
+      <button id="backDashboardBtn" class="qa-btn back-btn">Back to Dashboard</button>
+
+      <div class="panel notif-panel">
+        <div class="panel-header notif-header">
+          <h3><i class="fa-regular fa-bell"></i> Notifications</h3>
+          <button id="markAllRead" class="qa-btn mark-all-btn">Mark all as read</button>
+        </div>
+
+        <div class="notif-tabs">
+          <button class="notif-tab active" data-filter="all">All</button>
+          <button class="notif-tab" data-filter="unread">Unread <span class="notif-count notif-badge"
+              id="notifBadge">0</span></button>
+          <button class="notif-tab" data-filter="mentions">Mentions</button>
+        </div>
+
+        <ul id="notifList" class="notif-list"></ul>
+
+        <div id="emptyState" class="empty-state" style="display:none;">
+          <i class="fa-regular fa-bell"></i>
+          <p>No notifications yet</p>
+        </div>
+
+        <div class="notif-footer">
+          <a href="#" class="btn-link">View all notifications</a>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="task-details-template">
+    <div class="task-details-page">
+      <div class="task-header-bar">
+        <button id="backDashboardBtn" class="qa-btn back-btn">
+          <i class="fa fa-arrow-left"></i> Back
+        </button>
+        <div class="task-title-wrapper">
+          <h1 contenteditable="true" id="taskTitle" class="task-title">Implement Dark Mode Across Dashboard</h1>
+          <!-- <span class="task-id muted">#TASK-142</span> -->
+        </div>
+        <div class="task-actions">
+          <button class="icon-btn"><i class="fa fa-eye"></i></button>
+          <button class="icon-btn"><i class="fa fa-star"></i></button>
+          <button class="icon-btn"><i class="fa fa-share-alt"></i></button>
+          <button class="icon-btn more-btn"><i class="fa fa-ellipsis-h"></i></button>
+        </div>
+      </div>
+
+      <div class="task-main-grid">
+        <div class="task-left">
+          <div class="task-meta-bar">
+            <select id="taskStatus" class="status-select inprogress">
+              <option value="todo">To Do</option>
+              <option value="inprogress" selected>In Progress</option>
+              <option value="review">Review</option>
+              <option value="done">Done</option>
+            </select>
+            <div class="priority-badge high">High Priority</div>
+            <div class="due-date urgent">
+              <i class="fa fa-clock"></i>
+              <span>Due Today at 6:00 PM · <strong>3h 12min left</strong></span>
+            </div>
+          </div>
+
+          <div class="assignees-section">
+            <strong>Assignees</strong>
+            <div class="avatar-group">
+              <div class="avatar online">P</div>
+              <div class="avatar online">S</div>
+              <div class="avatar">+2</div>
+              <button class="add-assignee"><i class="fa fa-plus"></i></button>
+            </div>
+          </div>
+
+          <div class="project-link">
+            <i class="fa fa-briefcase"></i>
+            <a href="#">Planova Web App</a> → <a href="#">Frontend Redesign</a>
+          </div>
+
+          <section class="task-section">
+            <h3>Description</h3>
+            <div class="rich-text" contenteditable="true" placeholder="Add a detailed description...">
+              Implement full dark mode toggle with smooth transitions. Update all components including sidebar, modals,
+              charts, and kanban cards. Save preference in localStorage and sync with user settings.
+            </div>
+          </section>
+
+          <section class="task-section subtasks">
+            <div class="section-header">
+              <h3>Subtasks <span class="progress-text">7 of 12</span></h3>
+              <button class="add-btn"><i class="fa fa-plus"></i> Add subtask</button>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:58%"></div>
+            </div>
+            <ul class="checklist">
+              <li><label><input type="checkbox" checked> Update CSS variables</label></li>
+              <li><label><input type="checkbox" checked> Dark mode toggle in header</label></li>
+              <li><label><input type="checkbox" checked> Test all charts</label></li>
+              <li><label><input type="checkbox"> Fix sidebar contrast</label></li>
+              <li><label><input type="checkbox"> Update login page</label></li>
+            </ul>
+          </section>
+
+          <section class="task-section attachments">
+            <h3>Attachments</h3>
+            <div class="attachment-grid">
+              <div class="attachment preview">
+                <img src="https://via.placeholder.com/300x200" alt="Dark mode mockup">
+                <span>dark-mode-mockup.png</span>
+              </div>
+              <div class="attachment file">
+                <i class="fa fa-file-lines"></i>
+                <span>dark-theme-specs.pdf</span>
+              </div>
+              <div class="attachment upload-zone">
+                <i class="fa fa-cloud-arrow-up"></i>
+                <span>Drop files here or click to upload</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="task-section activity">
+            <h3>Activity</h3>
+            <div class="comment-stream">
+              <div class="activity-item system"><i class="fa fa-user-plus"></i>
+                <div><strong>Peter</strong> created this task <span class="muted">2 days ago</span></div>
+              </div>
+              <div class="activity-item comment">
+                <div class="avatar">S</div>
+                <div class="comment-body">
+                  <strong>Sarah</strong>
+                  <p>Let's use CSS variables for the colors so it's easy to switch</p>
+                  <div class="comment-actions"><span class="muted">1 day ago</span> · Reply · Smiley</div>
+                </div>
+              </div>
+              <div class="activity-item system"><i class="fa fa-arrow-right"></i>
+                <div><strong>Peter</strong> moved from <strong>To Do</strong> → <strong>In Progress</strong></div>
+              </div>
+            </div>
+
+            <div class="comment-box">
+              <div class="avatar">P</div>
+              <textarea placeholder="Write a comment..."></textarea>
+              <button class="send-comment"><i class="fa fa-paper-plane"></i></button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="task-sidebar">
+          <div class="sidebar-panel">
+            <h4>Labels</h4>
+            <div class="labels">
+              <span class="label frontend">Frontend</span>
+              <span class="label design">Design</span>
+              <span class="label urgent">Urgent</span>
+              <button class="add-label"><i class="fa fa-plus"></i></button>
+            </div>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Dates</h4>
+            <div class="date-field"><label>Start Date</label><input type="date" value="2025-11-18"></div>
+            <div class="date-field"><label>Due Date</label><input type="date" value="2025-11-20"></div>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Time Tracking</h4>
+            <div class="time-estimate">
+              <div>Estimated: <strong>12h</strong></div>
+              <div>Logged: <strong>6h 30m</strong></div>
+            </div>
+            <button class="play-timer"><i class="fa fa-play"></i> Start timer</button>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Related</h4>
+            <ul class="related-tasks">
+              <li><a href="#">TASK-138: Update color palette</a></li>
+              <li><a href="#">TASK-145: Mobile dark mode</a></li>
+            </ul>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Info</h4>
+            <div class="info-item"><span>Created by</span><strong>Peter Example</strong></div>
+            <div class="info-item"><span>Created</span><strong>Nov 18, 2025</strong></div>
+            <div class="info-item"><span>Last updated</span><strong>2 hours ago</strong></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </template>
+
+  <!-- TASKS PAGE TEMPLATE -->
+  <template id="tasks-template">
+    <div class="page-wrapper">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>Tasks</h2>
+          <p class="muted">All tasks across projects</p>
+        </div>
+        <div class="page-actions">
+          <button class="qa-btn" id="newTaskBtnFull">
+            <i class="fa fa-plus"></i> New Task
+          </button>
+        </div>
+      </div>
+
+      <div class="tasks-controls">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="my">My Tasks</button>
+          <button class="filter-tab" data-filter="assigned">Assigned</button>
+          <button class="filter-tab" data-filter="overdue">Overdue <span class="inbox-badge">3</span></button>
+          <button class="filter-tab" data-filter="completed">Completed</button>
+        </div>
+
+        <div class="view-toggle">
+          <button class="view-btn active" data-view="kanban"><i class="fa-solid fa-table-cells"></i></button>
+          <button class="view-btn" data-view="list"><i class="fa-solid fa-list-ul"></i></button>
+          <button class="view-btn" data-view="calendar"><i class="fa-solid fa-calendar-days"></i></button>
+        </div>
+      </div>
+
+      <div id="kanbanView" class="tasks-view active">
+        <div class="kanban-container">
+          <div class="kanban-column" data-status="backlog">
+            <div class="column-header">
+              <h4>Backlog <span class="task-count">4</span></h4>
+            </div>
+            <div class="column-tasks"></div>
+            <button class="add-task-btn">+ Add task</button>
+          </div>
+          <div class="kanban-column" data-status="todo">
+            <div class="column-header">
+              <h4>To Do <span class="task-count">8</span></h4>
+            </div>
+            <div class="column-tasks"></div>
+            <button class="add-task-btn">+ Add task</button>
+          </div>
+          <div class="kanban-column" data-status="inprogress">
+            <div class="column-header">
+              <h4>In Progress <span class="task-count">5</span></h4>
+            </div>
+            <div class="column-tasks"></div>
+            <button class="add-task-btn">+ Add task</button>
+          </div>
+          <div class="kanban-column" data-status="review">
+            <div class="column-header">
+              <h4>Review <span class="task-count">3</span></h4>
+            </div>
+            <div class="column-tasks"></div>
+            <button class="add-task-btn">+ Add task</button>
+          </div>
+          <div class="kanban-column" data-status="done">
+            <div class="column-header done">
+              <h4>Done <span class="task-count">12</span></h4>
+            </div>
+            <div class="column-tasks"></div>
+            <button class="add-task-btn">+ Add task</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="listView" class="tasks-view">
+        <div class="list-header">
+          <div class="list-row">
+            <div><input type="checkbox"></div>
+            <div>Title</div>
+            <div>Project</div>
+            <div>Assignees</div>
+            <div>Due Date</div>
+            <div>Priority</div>
+            <div>Status</div>
+          </div>
+        </div>
+        <div class="list-body"></div>
+      </div>
+
+      <div id="emptyTasks" class="empty-state">
+        <i class="fa-regular fa-check-circle" style="font-size:48px;opacity:0.3;"></i>
+        <h3>No tasks found</h3>
+        <p>Create your first task to get started</p>
+      </div>
+    </div>
+  </template>
+
+  <!-- In your dashboard.html, update the new-task-template -->
+  <template id="new-task-template">
+      <div class="task-form-container">
+          <div class="form-header">
+              <h2><i class="fas fa-plus-circle"></i> Create New Task</h2>
+              <button class="close-form-btn">
+                  <i class="fas fa-times"></i>
+              </button>
+          </div>
+
+          <form id="taskForm" class="task-form">
+              <div class="form-group">
+                  <label for="taskTitle"><i class="fas fa-heading"></i> Task Title *</label>
+                  <input type="text" id="taskTitle" name="title" class="form-input" placeholder="What needs to be done?" required>
+              </div>
+
+              <div class="form-group">
+                  <label for="taskDescription"><i class="fas fa-align-left"></i> Description</label>
+                  <textarea id="taskDescription" name="description" class="form-textarea" rows="4" placeholder="Add details, instructions, or context..."></textarea>
+              </div>
+
+              <div class="form-grid">
+                  <div class="form-group">
+                      <label for="taskProject"><i class="fas fa-briefcase"></i> Project *</label>
+                      <!-- Searchable dropdown container -->
+                      <div class="searchable-dropdown">
+                        <!-- Search input -->
+                        <div class="dropdown-search">
+                          <i class="fas fa-search"></i>
+                          <input type="text" id="projectSearch" placeholder="Search projects..." class="dropdown-search-input" autocomplete="off">
+                        </div>
+                        <!-- The actual select (hidden) -->
+                          <select name="project" id="taskProject" class="form-select" required>
+                            <option value="">Select a project</option>
+                            {% for project in all_projects %}
+                            <option value="{{ project.id }}">{{ project.name }}</option>
+                            {% endfor %}
+                          </select>
+                      </div>
+                  </div>
+
+                  <div class="form-group">
+                      <label for="taskAssignee"><i class="fas fa-user"></i> Assign To</label>
+                      <select id="taskAssignee" name="assigned_to" class="form-select">
+                          <option value="">Unassigned</option>
+                          <option value="{{ user.id }}">{{ user.first_name|default:user.username }} (You)</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div class="form-grid">
+                  <div class="form-group">
+                      <label for="taskStatus"><i class="fas fa-columns"></i> Status</label>
+                      <select id="taskStatus" name="status" class="form-select" required>
+                          <option value="todo" selected>To Do</option>
+                          <option value="inprogress">In Progress</option>
+                          <option value="review">Review</option>
+                          <option value="done">Done</option>
+                      </select>
+                  </div>
+
+                  <div class="form-group">
+                      <label for="taskPriority"><i class="fas fa-flag"></i> Priority</label>
+                      <select id="taskPriority" name="priority" class="form-select" required>
+                          <option value="low">Low</option>
+                          <option value="medium" selected>Medium</option>
+                          <option value="high">High</option>
+                          <option value="urgent">Urgent</option>
+                      </select>
+                  </div>
+              </div>
+
+              <div class="form-group">
+                  <label for="taskDueDate"><i class="fas fa-calendar-day"></i> Due Date</label>
+                  <input type="date" id="taskDueDate" name="due_date" class="form-input">
+              </div>
+
+              <div class="form-actions">
+                  <button type="button" class="qa-btn cancel-btn">Cancel</button>
+                  <button type="submit" class="qa-btn submit-btn">
+                      <i class="fas fa-check"></i> Create Task
+                  </button>
+              </div>
+          </form>
+      </div>
+  </template>
+  <!-- NEW PROJECT FORM TEMPLATE - UPDATED FOR YOUR MODEL -->
+  <template id="new-project-template">
+    <div class="form-page-container">
+      <div class="form-header">
+        <button onclick="restoreDashboard()" class="back-btn">
+          <i class="fas fa-arrow-left"></i> Back
+        </button>
+        <h2><i class="fas fa-briefcase"></i> Create New Project</h2>
+      </div>
+
+      <form id="projectForm" class="project-form" onsubmit="return handleProjectFormSubmit(this)">
+        {% csrf_token %}
+
+        <div class="form-section">
+          <h3><i class="fas fa-info-circle"></i> Project Details</h3>
+
+          <div class="form-group">
+            <label for="projectName">
+              <i class="fas fa-heading"></i> Project Name *
+            </label>
+            <input type="text" id="projectName" name="name" class="form-input"
+              placeholder="e.g., Website Redesign, Mobile App Development" required minlength="3" maxlength="255" oninput="validateProjectName(this)">
+            <!-- <div id="projectNameFeedback" class="form-feedback" style="display: none;"></div> -->
+            <small class="form-text">Check if you already have a project with this name</small>
+          </div>
+
+          <div class="form-group">
+            <label for="projectDescription">
+              <i class="fas fa-align-left"></i> Description
+            </label>
+            <textarea id="projectDescription" name="description" class="form-textarea" rows="4"
+              placeholder="Describe the project goals, objectives, and scope..."></textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3><i class="fas fa-users"></i> Team Members (Optional)</h3>
+          <p class="helper-text">
+            You can invite team members by their email addresses. They'll receive an invitation to join this project.
+          </p>
+
+          <div class="member-invite-section">
+            <div class="member-input-group">
+              <input type="email" id="inviteEmail" class="form-input" placeholder="Enter email address to invite...">
+              <button type="button" id="addMemberBtn" class="add-btn">
+                <i class="fas fa-plus"></i> Add
+              </button>
+            </div>
+
+            <div id="invitedMembers" class="invited-members-list">
+              <!-- Invited members will appear here -->
+            </div>
+
+            <input type="hidden" id="invitedEmails" name="invited_emails" value="[]">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" onclick="restoreDashboard()" class="cancel-btn">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+          <button type="submit" class="submit-btn" id="projectSubmitBtn">
+            <i class="fas fa-plus-circle"></i> Create Project
+          </button>
+        </div>
+      </form>
+
+      <div id="formMessages" class="form-messages"></div>
+    </div>
+  </template>
+
+  <script>
+    // Real-time validation function
+    function validateProjectName(input) {
+      const feedback = document.getElementById('projectNameFeedback');
+      const name = input.value.trim();
+      
+      if (name.length < 3) {
+        feedback.style.display = 'none';
+        return;
+      }
+      
+      // Check for duplicates in cached data
+      const duplicateCheck = checkForDuplicateProject(name);
+      
+      if (duplicateCheck.exists) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#ffa500';
+        feedback.innerHTML = `
+          <i class="fas fa-exclamation-triangle"></i>
+          You already have a project named "${duplicateCheck.project.name}"
+        `;
+        input.style.borderColor = '#ffa500';
+      } else {
+        feedback.style.display = 'block';
+        feedback.style.color = '#00ff9d';
+        feedback.innerHTML = `
+          <i class="fas fa-check-circle"></i>
+          Project name is available
+        `;
+        input.style.borderColor = '#00ff9d';
+      }
+    }
+  </script>
+
+  <!-- PROJECT DETAILS TEMPLATE -->
+  <template id="project-details-template">
+    <div class="project-details-page">
+      <div class="project-header-bar">
+        <button class="qa-btn back-btn" onclick="restoreDashboard()">
+          <i class="fa fa-arrow-left"></i> Back to Dashboard
+        </button>
+        <div class="project-title-wrapper">
+          <h1 contenteditable="true" id="projectTitle" class="project-title"></h1>
+          <div class="project-meta">
+            <span class="project-id muted"></span>
+            <span class="project-owner"></span>
+            <span class="project-date"></span>
+          </div>
+        </div>
+        <div class="project-actions">
+          <button class="icon-btn" id="editProjectBtn"><i class="fa fa-edit"></i></button>
+          <button class="icon-btn" id="inviteToProjectBtn"><i class="fa fa-user-plus"></i></button>
+          <button class="icon-btn" id="projectSettingsBtn"><i class="fa fa-cog"></i></button>
+        </div>
+      </div>
+
+      <div class="project-main-grid">
+        <div class="project-left">
+          <div class="project-overview">
+            <div class="project-progress-card">
+              <div class="progress-stats">
+                <h3>Progress</h3>
+                <div class="progress-percentage" id="projectProgressPercentage">0%</div>
+              </div>
+              <div class="progress-bar-large">
+                <div class="progress-fill-large" id="projectProgressFill" style="width: 0%"></div>
+              </div>
+              <div class="progress-numbers">
+                <div><span class="number" id="completedTasks">0</span> <small>Completed</small></div>
+                <div><span class="number" id="totalTasks">0</span> <small>Total Tasks</small></div>
+                <div><span class="number" id="overdueTasks">0</span> <small>Overdue</small></div>
+              </div>
+            </div>
+
+            <div class="project-description">
+              <h3>Description</h3>
+              <div class="description-text" id="projectDescription" contenteditable="false">
+                No description provided
+              </div>
+            </div>
+          </div>
+
+          <section class="project-tasks-section">
+            <div class="section-header">
+              <h3>Tasks <span class="task-count-badge" id="projectTaskCount">0</span></h3>
+              <button class="qa-btn" id="addTaskToProject">
+                <i class="fa fa-plus"></i> Add Task
+              </button>
+            </div>
+
+            <div class="task-filters">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="todo">To Do</button>
+              <button class="filter-btn" data-filter="inprogress">In Progress</button>
+              <button class="filter-btn" data-filter="review">Review</button>
+              <button class="filter-btn" data-filter="done">Done</button>
+            </div>
+
+            <div class="project-kanban-board" id="projectKanbanBoard">
+              <!-- Kanban columns will be populated by JavaScript -->
+            </div>
+          </section>
+        </div>
+
+        <aside class="project-sidebar">
+          <div class="sidebar-panel">
+            <h4>Team Members</h4>
+            <div class="project-team" id="projectTeam">
+              <!-- Team members will be populated by JavaScript -->
+            </div>
+            <button class="qa-btn add-member-btn" id="addMemberBtn">
+              <i class="fa fa-user-plus"></i> Add Member
+            </button>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Recent Activity</h4>
+            <div class="project-activity" id="projectActivity">
+              <!-- Activity will be populated by JavaScript -->
+            </div>
+          </div>
+
+          <div class="sidebar-panel">
+            <h4>Dates</h4>
+            <div class="project-dates">
+              <div class="date-item">
+                <span>Created</span>
+                <strong id="projectCreatedDate"></strong>
+              </div>
+              <div class="date-item">
+                <span>Last Updated</span>
+                <strong id="projectUpdatedDate"></strong>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </template>
+
+  <!-- ALL PROJECTS TEMPLATE -->
+  <template id="all-projects-template">
+    <div class="all-projects-page">
+      <div class="page-header">
+        <div class="page-title">
+          <h2>All Projects</h2>
+          <p class="muted">Manage all your projects in one place</p>
+        </div>
+        <div class="page-actions">
+          <button class="qa-btn" onclick="showNewProjectForm()">
+            <i class="fa fa-plus"></i> New Project
+          </button>
+        </div>
+      </div>
+
+      <div class="projects-controls">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All Projects</button>
+          <button class="filter-tab" data-filter="active">Active</button>
+          <button class="filter-tab" data-filter="archived">Archived</button>
+          <button class="filter-tab" data-filter="starred">Starred</button>
+        </div>
+
+        <div class="search-box">
+          <i class="fas fa-search"></i>
+          <input type="text" id="projectsSearch" placeholder="Search projects..." autocomplete="off">
+        </div>
+      </div>
+
+      <div class="projects-grid" id="projectsGrid">
+        <!-- Projects will be populated by JavaScript -->
+      </div>
+
+      <div id="emptyProjects" class="empty-state" style="display: none;">
+        <i class="fa-regular fa-folder-open" style="font-size:48px;opacity:0.3;"></i>
+        <h3>No projects found</h3>
+        <p>Create your first project to get started</p>
+      </div>
+    </div>
+  </template>
+
+  <!-- TASK STATUS UPDATE TEMPLATE -->
+  <template id="task-status-popup">
+    <div class="status-popup-overlay" id="statusPopupOverlay">
+      <div class="status-popup">
+        <h3>Update Task Status</h3>
+        <div class="status-options">
+          <button class="status-option todo" data-status="todo">To Do</button>
+          <button class="status-option inprogress" data-status="inprogress">In Progress</button>
+          <button class="status-option review" data-status="review">Review</button>
+          <button class="status-option done" data-status="done">Done</button>
+        </div>
+        <div class="popup-actions">
+          <button class="cancel-btn" onclick="closeStatusPopup()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </template>
+  <!-- CSRF Token for AJAX requests -->
+  {% csrf_token %}
+
+  <!-- Django Data Injection -->
+  <script type="application/json" id="django-data">
+    {
+      "user": {
+        "id": {{ user.id }},
+        "username": "{{ user.username|escapejs }}",
+        "firstName": "{{ user.first_name|escapejs|default:user.username }}",
+        "lastName": "{{ user.last_name|escapejs }}",
+        "email": "{{ user.email|escapejs }}"
+      },
+      "counts": {
+        "activeProjects": {{ active_projects_count }},
+        "tasksDue": {{ tasks_due_count }},
+        "overdue": {{ overdue_count }},
+        "teamCount": {{ team_count }}
+      },
+      "tasks": {
+        "todo": {{ todos_json|safe }},
+        "inprogress": {{ inprogress_json|safe }},
+        "review": {{ review_json|safe }},
+        "done": {{ done_json|safe }},
+        "all": {{ all_tasks_json|safe }}
+      }
+    }
+  </script>
+  <script>
+    // Initialize global djangoData
+    window.djangoData = JSON.parse(document.getElementById('django-data').textContent);
+    console.log('🎯 Dashboard data loaded:', window.djangoData);
+  </script>
+  <script>
+// Global state initialization
+window.AppState = window.AppState || {
+  originalDashboardHTML: null,
+  currentPage: "dashboard",
+  cachedData: {},
+  needsRefresh: {}
+};
+
+// Override existing restoreDashboard if needed
+if (typeof window.restoreDashboard !== 'function') {
+  window.restoreDashboard = function() {
+    console.log("🔄 Restoring dashboard...");
+    window.location.hash = "#dashboard";
+    localStorage.setItem("swyfttask-page", "dashboard");
+    
+    // Trigger a soft reload
+    const event = new CustomEvent('dashboard-restore');
+    document.dispatchEvent(event);
+  };
+}
+
+// Listen for dashboard restore events
+document.addEventListener('dashboard-restore', function() {
+  // This will be handled by the main dashboard.js
+  console.log('Dashboard restore requested');
+});
+
+// Ensure data is loaded on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Check if we're on dashboard
+  if (window.location.hash === '#dashboard' || !window.location.hash) {
+    console.log('Loading dashboard data...');
+    
+    // If loadDashboardData exists, call it
+    if (typeof window.loadDashboardData === 'function') {
+      window.loadDashboardData();
+    }
+  }
+});
+
+// Handle browser back/forward
+window.addEventListener('popstate', function(event) {
+  if (event.state && event.state.page === 'dashboard') {
+    console.log('Navigated back to dashboard via browser');
+    if (typeof window.loadDashboardData === 'function') {
+      window.loadDashboardData();
+    }
+  }
+});
+</script>
+<script>
+// Initialize global state and functions
+window.addEventListener('DOMContentLoaded', function() {
+  // Make sure all functions are available globally
+  if (typeof restoreDashboard !== 'function') {
+    window.restoreDashboard = function() {
+      console.log('Restoring dashboard...');
+      // This will be handled by the main dashboard.js
+    };
+  }
+  
+  // Set up event listeners for any buttons that might be in the original HTML
+  setTimeout(function() {
+    // Add click handlers to existing project cards
+    document.querySelectorAll('.pinned-project:not(.view-all-projects)').forEach(card => {
+      card.addEventListener('click', function(e) {
+        if (!e.target.closest('.project-menu-btn')) {
+          const projectId = this.getAttribute('data-project-id');
+          const projectName = this.querySelector('h4').textContent.trim();
+          if (typeof openProjectDetails === 'function') {
+            openProjectDetails(projectId, projectName);
+          }
+        }
+      });
+    });
+    
+    // Add click handler to View All button
+    const viewAllBtn = document.querySelector('.view-all-projects');
+    if (viewAllBtn && typeof showAllProjects === 'function') {
+      viewAllBtn.addEventListener('click', showAllProjects);
+    }
+  }, 1000);
+});
+</script>
+<script>
+// Override the handleProjectFormSubmit to ensure it works
+window.handleProjectFormSubmit = async function(form) {
+    console.log("Submitting project form...");
+    
+    // Simple validation
+    const projectName = form.querySelector('#projectName').value;
+    if (!projectName || projectName.trim() === '') {
+        alert('Project name is required');
+        return false;
+    }
+    
+    // Show loading
+    const submitBtn = form.querySelector('.submit-btn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
+    
+    try {
+        const formData = new FormData(form);
+        const data = {
+            name: formData.get('name'),
+            description: formData.get('description'),
+            invited_emails: []
+        };
+        
+        const response = await fetch('/api/projects/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Project created successfully!');
+            window.location.reload(); // Simple reload to refresh data
+        } else {
+            alert('Error: ' + (result.error || 'Failed to create project'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+    
+    return false;
+};
+</script>
+</body>
+
+</html>

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="page-wrapper">
+    <div class="page-header">
+        <div class="page-title">
+            <h2>All Tasks</h2>
+            <p class="muted">{{ tasks.count }} tasks found</p>
+        </div>
+        <div class="page-actions">
+            <a href="{% url 'create_task' %}" class="qa-btn">
+                <i class="fa fa-plus"></i> New Task
+            </a>
+        </div>
+    </div>
+
+    <div class="tasks-controls">
+        <div class="filter-tabs">
+            <a href="?status=all" class="filter-tab {% if not request.GET.status %}active{% endif %}">All</a>
+            <a href="?status=todo" class="filter-tab {% if request.GET.status == 'todo' %}active{% endif %}">To Do</a>
+            <a href="?status=pending" class="filter-tab {% if request.GET.status == 'pending' %}active{% endif %}">In Progress</a>
+            <a href="?status=review" class="filter-tab {% if request.GET.status == 'review' %}active{% endif %}">Review</a>
+            <a href="?status=done" class="filter-tab {% if request.GET.status == 'done' %}active{% endif %}">Done</a>
+            <a href="?assigned_to_me=1" class="filter-tab">My Tasks</a>
+        </div>
+    </div>
+
+    <div class="tasks-list">
+        {% for task in tasks %}
+        <div class="task-item" onclick="window.location.href='{% url 'task_detail' task.id %}'">
+            <div class="task-status {{ task.status }}">{{ task.get_status_display }}</div>
+            <div class="task-content">
+                <h4>{{ task.title }}</h4>
+                <p class="muted">{{ task.project.name }}</p>
+                <div class="task-meta">
+                    <span><i class="fa fa-user"></i> {{ task.assigned_to.get_full_name|default:task.assigned_to.username|default:"Unassigned" }}</span>
+                    {% if task.due_date %}
+                    <span><i class="fa fa-calendar"></i> {{ task.due_date }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i class="fa-regular fa-check-circle"></i>
+            <h3>No tasks found</h3>
+            <p>Create your first task to get started</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
