@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email</title>
+    <link rel="stylesheet" href="{% static 'css/check-email.css'%}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    
+</head>
+<body>
+    <div class="check-email-container">
+        <h2>Almost there!</h2>
+        <p>Please check your inbox (and spam folder) to activate your account.</p>
+        <p>An activation link has been sent to your email.</p>
+        <p><strong>It expires in 5 minutes</strong> for security.</p>
+        <p>If you don't receive it, you can request a new one after the timer ends.</p>
+
+        <div id="timer">Link expires in 5m 00s</div>
+
+        <input type="hidden" id="userEmail" value="{{email}}">
+
+        <!-- Resend Email Button -->
+        <button id="resendBtn">Resend Email</button>
+        
+
+        {% csrf_token %}
+
+        <script>
+            window.resendActivationUrl = "{% url 'accounts.resend_activation_email' %}";
+        </script>
+
+        <!-- Animated dots -->
+        <div class="dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+
+        <script src="{% static 'js/check-email.js'%}"></script>
+
+</body>
+</html>
+
+
+
+
