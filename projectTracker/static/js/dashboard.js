@@ -6,6 +6,8 @@ let validationSetupDone = false;
 let validationControllers = new Map();
 let isRefreshing = false;
 let refreshQueue = [];
+let lastRefreshTime = 0;
+const MIN_REFRESH_INTERVAL = 2000; // 2 seconds minimum between refreshes
 
 // Global state
 const AppState = {
@@ -26,6 +28,52 @@ const AppState = {
   currentTaskId: null,
 };
 
+// Add this function to your dashboard.js
+function updateGreeting() {
+  const hour = new Date().getHours();
+  const userName =
+    window.djangoData?.user?.firstName ||
+    window.djangoData?.user?.username ||
+    "";
+  let greeting = "";
+  let icon = "";
+
+  if (hour >= 5 && hour < 12) {
+    greeting = "Good morning";
+    icon = "🌅";
+  } else if (hour >= 12 && hour < 14) {
+    greeting = "Good noon";
+    icon = "☀️";
+  } else if (hour >= 14 && hour < 17) {
+    greeting = "Good afternoon";
+    icon = "🌤️";
+  } else if (hour >= 17 && hour < 21) {
+    greeting = "Good evening";
+    icon = "🌆";
+  } else if (hour >= 21 && hour < 24) {
+    greeting = "Good night";
+    icon = "🌙";
+  } else {
+    greeting = "Good night";
+    icon = "🌃";
+  }
+
+  const greetingElement = document.getElementById("dynamicGreeting");
+  if (greetingElement) {
+    greetingElement.innerHTML = `${icon} ${greeting}, ${userName}`;
+  }
+
+  return greeting;
+}
+
+// Call this function when dashboard loads
+function setupGreeting() {
+  updateGreeting();
+
+  // Update greeting every minute in case user stays on page for a long time
+  setInterval(updateGreeting, 60000);
+}
+
 // Main initialization
 document.addEventListener("DOMContentLoaded", function () {
   console.log("🚀 SwyftTask Dashboard Initializing...");
@@ -40,6 +88,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // Initialize all functionality
   setupAllFunctionality();
 
+  setupActionTracking();
+
   // Call this in your initialization
   setupGlobalEventListeners();
 
@@ -52,20 +102,26 @@ document.addEventListener("DOMContentLoaded", function () {
 // Add this to your dashboard.js initialization
 function setupGlobalEventListeners() {
   // Fix for new task button in tasks page
-  document.addEventListener('click', function(e) {
+  document.addEventListener("click", function (e) {
     // Check if clicked on new task button in tasks page
-    if (e.target.id === 'newTaskBtnFull' || 
-        e.target.closest('#newTaskBtnFull') ||
-        (e.target.classList.contains('fa-plus') && e.target.closest('.page-actions'))) {
+    if (
+      e.target.id === "newTaskBtnFull" ||
+      e.target.closest("#newTaskBtnFull") ||
+      (e.target.classList.contains("fa-plus") &&
+        e.target.closest(".page-actions"))
+    ) {
       e.preventDefault();
       e.stopPropagation();
       console.log("➕ New Task button clicked (global handler)");
       showNewTaskForm();
     }
-    
+
     // Check if clicked on add task button in project details
-    if (e.target.closest('.icon-btn[title="Add Task"]') || 
-        (e.target.classList.contains('fa-plus') && e.target.closest('.project-actions'))) {
+    if (
+      e.target.closest('.icon-btn[title="Add Task"]') ||
+      (e.target.classList.contains("fa-plus") &&
+        e.target.closest(".project-actions"))
+    ) {
       e.preventDefault();
       e.stopPropagation();
       const projectId = AppState.currentProjectId;
@@ -74,16 +130,38 @@ function setupGlobalEventListeners() {
         showNewTaskForm();
         // Pre-select the project
         setTimeout(() => {
-          const projectSelect = document.getElementById('taskProject');
+          const projectSelect = document.getElementById("taskProject");
           if (projectSelect) {
             projectSelect.value = projectId;
-            projectSelect.dispatchEvent(new Event('change'));
+            projectSelect.dispatchEvent(new Event("change"));
           }
         }, 300);
       } else {
         showNewTaskForm();
       }
     }
+  });
+}
+
+let refreshTimeout = null;
+function debouncedRefresh(delay = 1000) {
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout);
+  }
+
+  refreshTimeout = setTimeout(() => {
+    refreshDashboardData(false);
+  }, delay);
+}
+
+function cleanupEventListeners() {
+  // Remove all dynamically added event listeners
+  document.querySelectorAll(".pinned-project").forEach((project) => {
+    project.replaceWith(project.cloneNode(true));
+  });
+
+  document.querySelectorAll(".kanban-task").forEach((task) => {
+    task.replaceWith(task.cloneNode(true));
   });
 }
 
@@ -140,6 +218,7 @@ function setupAllFunctionality() {
   setupFormHandlers();
   setupTaskDragAndDrop();
   setupSearchFunctionality();
+  setupGreeting();
 
   // Start auto-refresh if on dashboard
   if (AppState.currentPage === "dashboard") {
@@ -147,6 +226,42 @@ function setupAllFunctionality() {
   }
 
   console.log("✅ All functionality setup complete");
+}
+
+function setupActionTracking() {
+  // Track all form submissions - but only for actual submissions
+  document.addEventListener("submit", function (e) {
+    if (e.target.matches("#taskForm, #projectForm")) {
+      console.log("Form submitted via SUBMIT event, will refresh dashboard");
+      // Refresh after a short delay to allow server processing
+      setTimeout(() => {
+        refreshDashboardData(true);
+      }, 1500);
+    }
+  });
+
+  // Track button clicks for major actions - but exclude form submit buttons
+  document.addEventListener("click", function (e) {
+    const btn = e.target.closest("button");
+    if (btn && btn.type !== "submit" && !btn.classList.contains("submit-btn")) {
+      const btnText = btn.textContent.toLowerCase();
+      const actionsToTrack = [
+        "save",
+        "update",
+        "delete",
+        "create",
+        "add",
+        "remove",
+      ];
+
+      if (actionsToTrack.some((action) => btnText.includes(action))) {
+        console.log("Action button clicked, will refresh dashboard");
+        setTimeout(() => {
+          refreshDashboardData(true);
+        }, 1500);
+      }
+    }
+  });
 }
 
 // =============================================
@@ -245,7 +360,7 @@ function setupEventListeners() {
       if (!projectId || projectId === "null" || projectId === "undefined") {
         showNotification(
           "This project cannot be opened. Please try another.",
-          "error"
+          "error",
         );
         return;
       }
@@ -281,7 +396,7 @@ function setupEventListeners() {
 
     // Task click handlers
     const taskElement = e.target.closest(
-      ".kanban-task, .due-list li, .assigned-tasks li, .task-card"
+      ".kanban-task, .due-list li, .assigned-tasks li, .task-card",
     );
     if (taskElement) {
       const taskId = taskElement.getAttribute("data-task-id");
@@ -361,7 +476,7 @@ function startAutoRefresh() {
         refreshDashboardData();
       }
     }
-  }, 30000);
+  }, 10000);
 
   // Track user activity
   ["mousemove", "click", "keypress", "scroll"].forEach((event) => {
@@ -370,7 +485,7 @@ function startAutoRefresh() {
       () => {
         window.lastUserActivity = Date.now();
       },
-      { passive: true }
+      { passive: true },
     );
   });
 
@@ -385,71 +500,164 @@ function stopAutoRefresh() {
   }
 }
 
+// dashboard.js - Add efficient count updating
+
+function updateCountsWithAnimation(counts) {
+  if (!counts) return;
+
+  const elements = {
+    activeProjectsCount: "active_projects",
+    tasksDueCount: "tasks_due",
+    overdueCount: "overdue",
+    teamCount: "team_count",
+  };
+
+  Object.entries(elements).forEach(([elementId, dataKey]) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    const newValue = counts[dataKey] || 0;
+    const currentValue = parseInt(element.textContent) || 0;
+
+    if (newValue !== currentValue) {
+      // Simple update without animation for performance
+      element.textContent = newValue;
+
+      // Optional: Add a subtle highlight
+      element.classList.add("updated");
+      setTimeout(() => element.classList.remove("updated"), 1000);
+    }
+  });
+}
+
+// Pause auto-refresh when tab is not visible
+document.addEventListener("visibilitychange", function () {
+  if (document.hidden) {
+    stopAutoRefresh();
+  } else {
+    startAutoRefresh();
+  }
+});
+
 async function refreshDashboardData(force = false) {
+  const now = Date.now();
   if (isRefreshing && !force) {
-    console.log("⏳ Refresh already in progress");
+    console.log("⏳ Already refreshing, skipping");
     return;
   }
 
-  const now = Date.now();
-  if (window.lastRefresh && now - window.lastRefresh < 2000 && !force) {
+  if (!force && now - lastRefreshTime < MIN_REFRESH_INTERVAL) {
     console.log("⏳ Too soon since last refresh");
     return;
   }
 
-  showLoader();
   isRefreshing = true;
   window.lastRefresh = now;
 
   try {
     console.log("🔄 Refreshing dashboard data...");
+
     const response = await fetch("/api/dashboard/full-data/");
+
+    console.log("📡 Response status:", response.status);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
     const data = await response.json();
+    console.log("📦 Response data structure:", {
+      hasCounts: !!data.counts,
+      hasProjects: !!data.projects,
+      hasTotalProjects: data.hasOwnProperty("total_projects"),
+      totalProjectsValue: data.total_projects,
+    });
 
     if (data.success) {
       AppState.cachedData = {
-        counts: data.counts,
-        tasks: data.tasks,
-        projects: data.projects,
-        total_projects: data.total_projects || data.projects.length,
+        counts: data.counts || {},
+        tasks: data.tasks || {},
+        projects: data.projects || {},
+        total_projects:
+          data.total_projects || (data.projects ? data.projects.length : 0),
       };
 
-      console.log("📊 Updated counts:", data.counts);
+      console.log("✅ Data refreshed and cached successfully", {
+        cachedProjects: AppState.cachedData.projects.length,
+        cachedTotalProjects: AppState.cachedData.total_projects,
+      });
 
       // Update the UI only if we're on dashboard
       if (AppState.currentPage === "dashboard") {
-        updateCompleteDashboardUI(data);
+        updateDashboardUI();
       }
 
-      // If we're on tasks page, refresh it too
-      if (AppState.currentPage === "tasks") {
-        // Re-initialize tasks page with new data
-        const mainContent = document.getElementById("mainContent");
-        if (mainContent && mainContent.innerHTML.includes("tasks-page")) {
-          initializeTasksPage(data);
-        }
-      }
+      // Clear any error notifications
+      hideErrorNotifications();
+    } else {
+      console.error("❌ API returned success: false", data.error);
+      // Don't show notification for API errors (we'll handle them differently)
     }
   } catch (error) {
-    console.error("Error refreshing dashboard:", error);
+    console.error("❌ Refresh error details:", error);
+    console.log("⚠️ Non-critical error, not showing notification");
   } finally {
     isRefreshing = false;
-    hideLoader();
+    console.log("🏁 Refresh completed");
   }
 }
 
+// dashboard.js - Silent refresh that never shows errors
+async function silentRefreshDashboardData() {
+  if (isRefreshing) return;
+
+  isRefreshing = true;
+
+  try {
+    const response = await fetch("/api/dashboard/full-data/");
+
+    if (response.ok) {
+      const data = await response.json();
+
+      if (data.success && AppState.currentPage === "dashboard") {
+        AppState.cachedData = data;
+        updateDashboardUI();
+      }
+    }
+    // Silently ignore all errors
+  } catch (error) {
+    // Do nothing - silent fail
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function hideErrorNotifications() {
+  // Remove any existing error notifications
+  document
+    .querySelectorAll(".notification-toast.error")
+    .forEach((notification) => {
+      notification.remove();
+    });
+}
+
 function updateCompleteDashboardUI(data) {
+  if (!data) return;
   updateDashboardCounts(data.counts);
-  updatePinnedProjectsFromCache();
-  updateTasksDueToday(data.tasks);
+  updatePinnedProjects(data);
+  updateTasksDueToday(data);
   updateKanbanBoard(data.tasks);
   updateYourTasks(data.tasks);
+  updateRecentActivity(data.tasks);
+  updateTeamOnline();
 
   console.log("✅ Complete dashboard UI updated");
 }
 
 function updateDashboardCounts(counts) {
   if (!counts) return;
+
+  console.log("📊 Updating dashboard counts:", counts);
 
   const elements = {
     activeProjectsCount: "active_projects",
@@ -461,9 +669,146 @@ function updateDashboardCounts(counts) {
   Object.entries(elements).forEach(([id, key]) => {
     const element = document.getElementById(id);
     if (element && counts[key] !== undefined) {
-      element.textContent = counts[key];
+      const currentValue = parseInt(element.textContent) || 0;
+      const newValue = counts[key] || 0;
+
+      if (currentValue !== newValue) {
+        // Add animation for count changes
+        element.style.transform = "scale(1.2)";
+        element.style.color = "#00ff9d";
+
+        setTimeout(() => {
+          element.textContent = newValue;
+          element.style.transform = "scale(1)";
+          setTimeout(() => {
+            element.style.color = "";
+          }, 1000);
+        }, 300);
+      } else {
+        element.textContent = newValue;
+      }
     }
   });
+}
+
+// dashboard.js - SIMPLIFIED FIX for pinned projects update
+
+function updatePinnedProjects(data) {
+  console.log("🔍 Debug: Updating pinned projects with data:", data);
+
+  const pinnedProjectsContainer = document.querySelector(".pinned-projects");
+  if (!pinnedProjectsContainer) {
+    console.log("❌ No pinned projects container found");
+    return;
+  }
+
+  console.log("✅ Found pinned projects container");
+
+  // Get projects from the data - FIXED: Use data.projects directly
+  let projects = [];
+  if (data && data.projects && Array.isArray(data.projects)) {
+    projects = data.projects;
+    console.log(`📦 Found ${projects.length} projects in data`);
+  } else {
+    console.log("⚠️ No project data available");
+    // Show create button
+    showEmptyProjectsState(pinnedProjectsContainer);
+    return;
+  }
+
+  // Clear container first
+  pinnedProjectsContainer.innerHTML = "";
+
+  // If no projects, show create button
+  if (projects.length === 0) {
+    console.log("🆕 Showing 'Create Project' button (no projects)");
+    showEmptyProjectsState(pinnedProjectsContainer);
+    return;
+  }
+
+  console.log(`🎨 Rendering ${Math.min(projects.length, 4)} pinned projects`);
+
+  // Show first 4 projects
+  projects.slice(0, 4).forEach((project) => {
+    const projectCard = document.createElement("div");
+    projectCard.className = `pinned-project ${project.css_class || ""}`;
+    projectCard.setAttribute("data-project-id", project.id);
+
+    // Truncate long project names
+    const projectName =
+      project.name && project.name.length > 20
+        ? project.name.substring(0, 20) + "..."
+        : project.name || "Unnamed Project";
+
+    // Ensure we have task count and progress - use fallbacks
+    const taskCount = project.task_count || 0;
+    const progress = project.progress || 0;
+
+    console.log(
+      `📊 Project "${projectName}": ${progress}% complete, ${taskCount} tasks`,
+    );
+
+    projectCard.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <h4>${projectName}</h4>
+        <button class="project-menu-btn" 
+          onclick="event.stopPropagation(); showProjectContextMenu(event, ${project.id})">
+          <i class="fas fa-ellipsis-v"></i>
+        </button>
+      </div>
+      <small>${progress}% complete • ${taskCount} task${taskCount !== 1 ? "s" : ""}</small>
+      <div class="progress">
+        <div class="progress-fill" style="width:${progress}%"></div>
+      </div>
+    `;
+
+    // Add click event to open project
+    projectCard.onclick = function (e) {
+      if (!e.target.closest(".project-menu-btn")) {
+        openProjectDetails(project.id, project.name || "Project");
+      }
+    };
+
+    pinnedProjectsContainer.appendChild(projectCard);
+  });
+
+  // Add "View All" button if there are more than 4 projects
+  // FIXED: Use data.total_projects if available, otherwise use projects.length
+  const totalProjects = data.total_projects || projects.length;
+  if (totalProjects > 4) {
+    console.log(
+      `➕ Adding "View All" button (${totalProjects} total projects)`,
+    );
+    const viewAllCard = document.createElement("div");
+    viewAllCard.className = "pinned-project view-all-projects";
+    viewAllCard.onclick = showAllProjects;
+    viewAllCard.innerHTML = `
+      <div class="view-all-content">
+        <h4><i class="fas fa-th-list"></i> View All Projects</h4>
+        <small>See all ${totalProjects} projects</small>
+        <div class="view-all-arrow">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+      </div>
+    `;
+    pinnedProjectsContainer.appendChild(viewAllCard);
+  }
+
+  console.log("✅ Pinned projects updated successfully");
+}
+
+function showEmptyProjectsState(container) {
+  const emptyProject = document.createElement("div");
+  emptyProject.className = "pinned-project";
+  emptyProject.onclick = showNewProjectForm;
+  emptyProject.innerHTML = `
+    <h4><i class="fas fa-plus-circle"></i> Create First Project</h4>
+    <small>Click to create your first project</small>
+    <div class="progress">
+      <div class="progress-fill" style="width:0%"></div>
+    </div>
+  `;
+  container.appendChild(emptyProject);
 }
 
 function updatePinnedProjectsFromCache() {
@@ -509,8 +854,8 @@ function updatePinnedProjectsFromCache() {
           </button>
         </div>
         <small>${project.progress}% complete • ${project.task_count} task${
-        project.task_count !== 1 ? "s" : ""
-      }</small>
+          project.task_count !== 1 ? "s" : ""
+        }</small>
         <div class="progress">
           <div class="progress-fill" style="width:${project.progress}%"></div>
         </div>
@@ -543,159 +888,744 @@ function updatePinnedProjectsFromCache() {
   }
 }
 
-function updateTasksDueToday(tasksData) {
-  const dueTodayContainer = document.querySelector(
-    ".tasks-due-today .due-list"
-  );
-  if (!dueTodayContainer) return;
+// dashboard.js - FIXED updateTasksDueToday function
+function updateTasksDueToday(data) {
+  console.log("📅 Updating tasks due today section...");
 
-  const today = new Date().toISOString().split("T")[0];
-  dueTodayContainer.innerHTML = "";
+  const limitedList = document.getElementById("dueTodayList");
+  const allTasksList = document.getElementById("allDueTodayTasks");
+  const moreIndicator = document.getElementById("moreTasksIndicator");
 
-  if (tasksData.todo && tasksData.todo.length > 0) {
-    const tasksToShow = tasksData.todo.slice(0, 5);
+  if (!limitedList) {
+    console.log("❌ No tasks due today container found");
+    return;
+  }
 
-    tasksToShow.forEach((task) => {
+  console.log("✅ Found tasks due today containers");
+
+  // Get today's date
+  const today = new Date();
+  const todayString = today.toISOString().split("T")[0];
+  console.log(`📅 Today's date: ${todayString}`);
+
+  // Get ALL tasks from the data
+  let allTasks = [];
+
+  if (data && data.tasks) {
+    // Combine all tasks from all statuses
+    allTasks = [
+      ...(data.tasks.todo || []),
+      ...(data.tasks.inprogress || []),
+      ...(data.tasks.review || []),
+      ...(data.tasks.done || []),
+    ];
+  } else if (AppState.cachedData && AppState.cachedData.tasks) {
+    // Fallback to cached data
+    allTasks = [
+      ...(AppState.cachedData.tasks.todo || []),
+      ...(AppState.cachedData.tasks.inprogress || []),
+      ...(AppState.cachedData.tasks.review || []),
+      ...(AppState.cachedData.tasks.done || []),
+    ];
+  }
+
+  console.log(`📊 Total tasks available: ${allTasks.length}`);
+
+  // Filter tasks due today AND not completed (unless they're done today)
+  const tasksDueToday = allTasks.filter((task) => {
+    // Skip tasks that are already done (unless they were done today)
+    if (task.status === "done") {
+      // Check if task was completed today
+      const completedDate = task.updated_at || task.created_at;
+      if (completedDate) {
+        const completedDateString = new Date(completedDate)
+          .toISOString()
+          .split("T")[0];
+        return completedDateString === todayString;
+      }
+      return false;
+    }
+
+    // For non-done tasks, check due date
+    if (!task.due_date) return false;
+
+    // Compare due dates
+    return task.due_date === todayString;
+  });
+
+  console.log(`📅 Found ${tasksDueToday.length} tasks due today`);
+
+  // Clear existing lists
+  limitedList.innerHTML = "";
+  if (allTasksList) allTasksList.innerHTML = "";
+
+  if (tasksDueToday.length === 0) {
+    limitedList.innerHTML = "<li><span>No tasks due today</span></li>";
+    if (allTasksList) {
+      allTasksList.innerHTML = "<li><span>No tasks due today</span></li>";
+    }
+  } else {
+    // Sort tasks: overdue/urgent first
+    const sortedTasks = [...tasksDueToday].sort((a, b) => {
+      // Sort by priority if due dates are the same
+      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+      return (
+        (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2)
+      );
+    });
+
+    // Show first 5 tasks in limited view
+    const limitedTasks = sortedTasks.slice(0, 5);
+
+    limitedTasks.forEach((task) => {
       const taskItem = document.createElement("li");
       taskItem.setAttribute("data-task-id", task.id);
 
-      const isDueToday = task.due_date === today;
+      const statusClass = task.status === "done" ? "complete" : "urgent";
+      const statusText =
+        task.status === "done" ? "Completed Today" : "Due Today";
 
       taskItem.innerHTML = `
         <span>${task.title}</span>
-        <strong class="${isDueToday ? "urgent" : ""}">
-          ${isDueToday ? "Due Today" : "No deadline"}
-        </strong>
+        <strong class="${statusClass}">${statusText}</strong>
       `;
 
-      dueTodayContainer.appendChild(taskItem);
+      taskItem.addEventListener("click", () => {
+        openTaskDetails(task.id, task.title);
+      });
+
+      limitedList.appendChild(taskItem);
     });
-  } else {
-    dueTodayContainer.innerHTML = "<li><span>No tasks due today</span></li>";
+
+    // Add "more tasks" indicator if there are more than 5
+    if (sortedTasks.length > 5 && moreIndicator) {
+      moreIndicator.innerHTML = `
+        <span>+${sortedTasks.length - 5} more tasks</span>
+        <button class="show-more-btn" onclick="showAllDueTodayTasks()">Show all</button>
+      `;
+      limitedList.appendChild(moreIndicator);
+    }
+
+    // Populate all tasks list
+    if (allTasksList) {
+      sortedTasks.forEach((task) => {
+        const taskItem = document.createElement("li");
+        taskItem.setAttribute("data-task-id", task.id);
+
+        const statusClass = task.status === "done" ? "complete" : "urgent";
+        const statusText =
+          task.status === "done" ? "Completed Today" : "Due Today";
+
+        taskItem.innerHTML = `
+          <span>${task.title}</span>
+          <strong class="${statusClass}">${statusText}</strong>
+        `;
+
+        taskItem.addEventListener("click", () => {
+          openTaskDetails(task.id, task.title);
+        });
+
+        allTasksList.appendChild(taskItem);
+      });
+
+      // Add "show less" button
+      const showLessItem = document.createElement("li");
+      showLessItem.innerHTML = `
+        <button class="show-less-btn" onclick="showLessDueTodayTasks()">Show less</button>
+      `;
+      allTasksList.appendChild(showLessItem);
+    }
   }
 
-  const countBadge = document.querySelector(".tasks-due-today .inbox-badge");
+  // Update the count badge
+  const countBadge = document.getElementById("dueTodayCount");
   if (countBadge) {
-    const taskCount = tasksData.todo ? tasksData.todo.length : 0;
-    countBadge.textContent = taskCount;
-    countBadge.style.display = taskCount > 0 ? "inline-block" : "none";
+    countBadge.textContent = tasksDueToday.length;
+    if (tasksDueToday.length > 0) {
+      countBadge.style.display = "inline-block";
+      console.log(`🎯 Updated badge: ${tasksDueToday.length} tasks due today`);
+    } else {
+      countBadge.style.display = "none";
+    }
+  }
+
+  console.log("✅ Tasks due today section updated");
+}
+// dashboard.js - More robust date comparison
+
+function isDueToday(dueDateString) {
+  if (!dueDateString) return false;
+
+  const today = new Date();
+  const todayString = today.toISOString().split("T")[0];
+
+  // Try to parse the due date
+  let dueDate;
+  try {
+    // Try ISO format first (YYYY-MM-DD)
+    dueDate = new Date(dueDateString);
+
+    // If invalid date, try other formats
+    if (isNaN(dueDate.getTime())) {
+      // Try without timezone
+      dueDate = new Date(dueDateString.split("T")[0]);
+    }
+  } catch (e) {
+    console.error("❌ Error parsing date:", dueDateString, e);
+    return false;
+  }
+
+  // Format due date to YYYY-MM-DD for comparison
+  const dueDateFormatted = dueDate.toISOString().split("T")[0];
+
+  return dueDateFormatted === todayString;
+}
+
+// Function to show all your tasks
+function showAllYourTasks() {
+  // This would open a filtered view showing all your tasks
+  showTasksPage();
+  // Set the filter to "My Tasks"
+  setTimeout(() => {
+    const myTasksTab = document.querySelector('.filter-tab[data-filter="my"]');
+    if (myTasksTab) {
+      myTasksTab.click();
+    }
+  }, 300);
+}
+
+// dashboard.js - Add functions for showing all due today tasks
+
+function showAllDueTodayTasks() {
+  console.log("📅 Showing all tasks due today...");
+
+  const limitedList = document.getElementById("dueTodayList");
+  const allTasksList = document.getElementById("allDueTodayTasks");
+  const moreIndicator = document.getElementById("moreTasksIndicator");
+
+  if (limitedList && allTasksList) {
+    limitedList.style.display = "none";
+    allTasksList.style.display = "block";
+
+    if (moreIndicator) {
+      moreIndicator.style.display = "none";
+    }
+
+    console.log("✅ Now showing all tasks due today");
   }
 }
 
-function updateKanbanBoard(tasksData) {
+function showLessDueTodayTasks() {
+  console.log("📅 Showing limited tasks due today...");
+
+  const limitedList = document.getElementById("dueTodayList");
+  const allTasksList = document.getElementById("allDueTodayTasks");
+  const moreIndicator = document.getElementById("moreTasksIndicator");
+
+  if (limitedList && allTasksList) {
+    limitedList.style.display = "block";
+    allTasksList.style.display = "none";
+
+    if (moreIndicator) {
+      moreIndicator.style.display = "block";
+    }
+
+    console.log("✅ Now showing limited tasks due today");
+  }
+}
+
+// dashboard.js - Update Kanban board
+
+function updateKanbanBoard(tasks) {
   const kanbanBoard = document.getElementById("kanbanBoard");
   if (!kanbanBoard) return;
 
+  console.log("📊 Updating Kanban board...");
+
+  // Clear ALL existing tasks first
+  kanbanBoard.querySelectorAll(".kanban-column").forEach((column) => {
+    // Remove all kanban-task elements but keep column headers
+    const tasksToRemove = column.querySelectorAll(".kanban-task");
+    tasksToRemove.forEach((task) => task.remove());
+  });
+
+  // Populate each column
   const columnMap = {
-    todo: tasksData.todo || [],
-    inprogress: tasksData.inprogress || [],
-    review: tasksData.review || [],
-    done: tasksData.done || [],
+    todo: tasks?.todo || [],
+    inprogress: tasks?.inprogress || [],
+    review: tasks?.review || [],
+    done: tasks?.done || [],
   };
 
-  kanbanBoard.querySelectorAll(".kanban-column").forEach((column) => {
-    const columnType = column.getAttribute("data-column");
-    const tasks = columnMap[columnType] || [];
-    const taskContainer = column.querySelector(".kanban-task:not(.empty)");
+  Object.entries(columnMap).forEach(([columnName, taskList]) => {
+    const column = kanbanBoard.querySelector(`[data-column="${columnName}"]`);
+    if (!column) {
+      console.log(`❌ Column ${columnName} not found`);
+      return;
+    }
 
-    if (taskContainer) {
-      taskContainer.innerHTML = "";
+    if (taskList.length === 0) {
+      const emptyTask = document.createElement("div");
+      emptyTask.className = "kanban-task empty";
+      emptyTask.textContent = "No tasks";
+      emptyTask.draggable = false;
+      column.appendChild(emptyTask);
+    } else {
+      // Show up to 5 tasks per column
+      taskList.slice(0, 5).forEach((task) => {
+        const taskElement = document.createElement("div");
+        taskElement.className = `kanban-task ${columnName === "done" ? "complete" : ""}`;
+        taskElement.setAttribute("data-task-id", task.id);
+        taskElement.setAttribute("draggable", "true");
 
-      if (tasks.length === 0) {
-        taskContainer.innerHTML =
-          '<div class="kanban-task empty">No tasks</div>';
-      } else {
-        const tasksToShow = tasks.slice(0, 5);
+        let assigneeInfo = "";
+        if (task.assigned_to_name) {
+          assigneeInfo = `<small>@${task.assigned_to_name}</small>`;
+        }
 
-        tasksToShow.forEach((task) => {
-          const taskElement = document.createElement("div");
-          taskElement.className = `kanban-task ${
-            columnType === "done" ? "complete" : ""
-          }`;
-          taskElement.setAttribute("role", "listitem");
-          taskElement.setAttribute("data-task-id", task.id);
+        taskElement.innerHTML = `
+          <div class="kanban-task-content">
+            <div class="kanban-task-title">${task.title}</div>
+            ${assigneeInfo ? `<div class="kanban-task-assignee">${assigneeInfo}</div>` : ""}
+          </div>
+        `;
 
-          let assigneeInfo = "";
-          if (task.assigned_to_name) {
-            assigneeInfo = `<small>@${task.assigned_to_name}</small>`;
-          }
-
-          taskElement.innerHTML = `${task.title} ${assigneeInfo}`;
-
-          taskElement.addEventListener("click", function () {
-            openTaskDetails(task.id, task.title);
-          });
-
-          taskContainer.appendChild(taskElement);
+        // Add click event
+        taskElement.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openTaskDetails(task.id, task.title);
         });
 
-        if (tasks.length > 5) {
-          const moreTasks = document.createElement("div");
-          moreTasks.className = "kanban-task more-tasks";
-          moreTasks.textContent = `+${tasks.length - 5} more`;
-          taskContainer.appendChild(moreTasks);
-        }
-      }
+        column.appendChild(taskElement);
+      });
     }
   });
+
+  console.log("✅ Kanban board updated");
 }
 
-function updateYourTasks(tasksData) {
+// dashboard.js - Update Your Tasks section
+
+function updateYourTasks(tasks) {
   const yourTasksContainer = document.querySelector(".assigned-tasks ul");
   if (!yourTasksContainer) return;
 
+  console.log("👤 Updating Your Tasks...");
+
   yourTasksContainer.innerHTML = "";
 
+  // Get current user ID
+  const currentUserId = window.djangoData?.user?.id;
+  if (!currentUserId) {
+    console.log("❌ No user ID available");
+    yourTasksContainer.innerHTML =
+      '<li><span class="task-title">No user data</span></li>';
+    return;
+  }
+
+  // Combine all tasks and filter by assigned_to
   const allTasks = [
-    ...(tasksData.todo || []),
-    ...(tasksData.inprogress || []),
-    ...(tasksData.review || []),
-    ...(tasksData.done || []),
+    ...(tasks?.todo || []),
+    ...(tasks?.inprogress || []),
+    ...(tasks?.review || []),
   ];
 
-  const currentUserId = window.djangoData?.user?.id;
-  const yourTasks = allTasks
-    .filter((task) => task.assigned_to === currentUserId)
-    .slice(0, 5);
+  const yourTasks = allTasks.filter((task) => {
+    const isAssignedToUser = task.assigned_to === currentUserId;
+
+    if (isAssignedToUser) {
+      console.log(
+        `✅ Found task "${task.title}" (ID: ${task.id}) - Status: ${task.status}, Assigned to: ${task.assigned_to}`,
+      );
+    }
+    return isAssignedToUser;
+  });
+
+  console.log(`👤 Found ${yourTasks.length} active tasks assigned to you`);
 
   if (yourTasks.length === 0) {
     yourTasksContainer.innerHTML =
       '<li><span class="task-title">No tasks assigned</span></li>';
   } else {
-    yourTasks.forEach((task) => {
+    // Show up to 5 tasks, sorted by due date (closest first)
+    const sortedTasks = yourTasks.sort((a, b) => {
+      // Tasks without due date go last
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+
+    const tasksToShow = sortedTasks.slice(0, 5);
+
+    tasksToShow.forEach((task) => {
       const taskItem = document.createElement("li");
       taskItem.setAttribute("data-task-id", task.id);
 
+      // Calculate due text
       let dueText = "no deadline";
+      let dueClass = "muted";
+
       if (task.due_date) {
         const dueDate = new Date(task.due_date);
         const today = new Date();
-        const diffTime = dueDate - today;
+        today.setHours(0, 0, 0, 0);
+
+        const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 0) dueText = "due today";
-        else if (diffDays < 0) dueText = "overdue";
-        else dueText = `in ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+        if (diffDays === 0) {
+          dueText = "due today";
+          dueClass = "urgent";
+        } else if (diffDays < 0) {
+          dueText = "overdue";
+          dueClass = "critical";
+        } else if (diffDays === 1) {
+          dueText = "due tomorrow";
+          dueClass = "warning";
+        } else if (diffDays <= 7) {
+          dueText = `in ${diffDays} days`;
+          dueClass = "warning";
+        } else {
+          dueText = `${diffDays} days left`;
+        }
       }
 
       taskItem.innerHTML = `
         <span class="task-title">${task.title}</span>
-        <small class="muted">${dueText}</small>
+        <small class="${dueClass}">${dueText}</small>
       `;
 
-      taskItem.addEventListener("click", function () {
+      // Add click event
+      taskItem.addEventListener("click", () => {
         openTaskDetails(task.id, task.title);
       });
 
       yourTasksContainer.appendChild(taskItem);
     });
+
+    // Show "more tasks" indicator if there are more than 5
+    if (yourTasks.length > 5) {
+      const moreItem = document.createElement("li");
+      moreItem.className = "more-tasks";
+      moreItem.innerHTML = `
+        <span class="task-title muted">+${yourTasks.length - 5} more tasks</span>
+        <button class="small-btn" onclick="showAllYourTasks()">Show all</button>
+      `;
+      yourTasksContainer.appendChild(moreItem);
+    }
   }
 
+  // Update the count badge - only count ACTIVE tasks (not done)
   const countBadge = document.querySelector(".assigned-tasks .inbox-badge");
   if (countBadge) {
     countBadge.textContent = yourTasks.length;
     countBadge.style.display = yourTasks.length > 0 ? "inline-block" : "none";
+    console.log(
+      `🎯 Updated badge: ${yourTasks.length} active tasks assigned to you`,
+    );
   }
+
+  console.log("✅ Your Tasks section updated");
+}
+
+function convertDjangoTime(djangoTime) {
+  if (!djangoTime) return null;
+
+  console.log("🔄 Converting Django time:", djangoTime);
+
+  try {
+    // Check if it's ISO format (contains 'T')
+    if (djangoTime.includes("T")) {
+      // ISO 8601 format: "2026-01-16T10:21:24.427912+00:00" or "2026-01-20T03:45:53.870832Z"
+      // JavaScript Date can parse ISO format directly
+      const date = new Date(djangoTime);
+
+      if (isNaN(date.getTime())) {
+        console.error("❌ Invalid ISO date:", djangoTime);
+        return null;
+      }
+
+      console.log("✅ ISO format converted:", {
+        input: djangoTime,
+        output: date.toISOString(),
+        local: date.toLocaleString(),
+      });
+
+      return date;
+    }
+
+    // Check if it's Django format (space separated)
+    if (djangoTime.includes(" ")) {
+      // Django format: "2026-01-20 03:46:34"
+      const [datePart, timePart] = djangoTime.split(" ");
+
+      if (!datePart || !timePart) {
+        console.error("❌ Invalid Django time format:", djangoTime);
+        return null;
+      }
+
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute, second] = timePart.split(":").map(Number);
+
+      // Create date in UTC (Django stores UTC)
+      const utcDate = new Date(
+        Date.UTC(year, month - 1, day, hour, minute, second),
+      );
+
+      if (isNaN(utcDate.getTime())) {
+        console.error("❌ Invalid date after conversion:", {
+          year,
+          month,
+          day,
+          hour,
+          minute,
+          second,
+        });
+        return null;
+      }
+
+      console.log("✅ Django format converted:", {
+        input: djangoTime,
+        output: utcDate.toISOString(),
+        local: utcDate.toLocaleString(),
+      });
+
+      return utcDate;
+    }
+
+    // If neither format, try direct parsing
+    const date = new Date(djangoTime);
+    if (!isNaN(date.getTime())) {
+      console.log("✅ Direct parsing worked:", {
+        input: djangoTime,
+        output: date.toISOString(),
+      });
+      return date;
+    }
+
+    console.error("❌ Unrecognized time format:", djangoTime);
+    return null;
+  } catch (error) {
+    console.error("❌ Error converting Django time:", error);
+    return null;
+  }
+}
+
+function calculateTimeAgo(diffMs) {
+  if (diffMs < 0) {
+    return "in the future";
+  }
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffSeconds < 60) {
+    return "just now";
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+  } else {
+    const date = new Date(Date.now() - diffMs);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+}
+
+function safeConvertDjangoTime(djangoTime) {
+  if (!djangoTime) return null;
+
+  // Try multiple parsing methods
+  const parsers = [
+    // Method 1: Direct UTC parsing
+    () => {
+      const [date, time] = djangoTime.split(" ");
+      const [year, month, day] = date.split("-").map(Number);
+      const [hour, minute, second] = time.split(":").map(Number);
+      return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+    },
+
+    // Method 2: ISO string with Z
+    () => new Date(djangoTime.replace(" ", "T") + "Z"),
+
+    // Method 3: ISO string without Z (local)
+    () => new Date(djangoTime.replace(" ", "T")),
+
+    // Method 4: Manual parsing with local timezone
+    () => {
+      const [date, time] = djangoTime.split(" ");
+      const [year, month, day] = date.split("-").map(Number);
+      const [hour, minute, second] = time.split(":").map(Number);
+      return new Date(year, month - 1, day, hour, minute, second);
+    },
+  ];
+
+  for (const parser of parsers) {
+    try {
+      const result = parser();
+      if (result && !isNaN(result.getTime())) {
+        console.log(`✅ Parser succeeded for: ${djangoTime}`);
+        return result;
+      }
+    } catch (e) {
+      // Try next parser
+    }
+  }
+
+  console.error(`❌ All parsers failed for: ${djangoTime}`);
+  return null;
+}
+
+// dashboard.js - Update recent activity
+
+function updateRecentActivity(tasks) {
+  const activityContainer = document.querySelector(".activity-feed ul");
+  if (!activityContainer) return;
+
+  console.log("📝 Updating recent activity...");
+
+  activityContainer.innerHTML = "";
+
+  if (!tasks) {
+    activityContainer.innerHTML = "<li>No recent activity</li>";
+    return;
+  }
+
+  const allActivities = [];
+
+  // Process each status category
+  ["todo", "inprogress", "review", "done"].forEach((status) => {
+    const statusTasks = tasks[status] || [];
+
+    statusTasks.forEach((task) => {
+      // Skip if no timestamps
+      if (!task.created_at && !task.updated_at) {
+        console.log("⚠️ Task has no timestamps:", task.id);
+        return;
+      }
+
+      // Convert times using the fixed converter
+      const createdDate = convertDjangoTimeSimple(task.created_at);
+      const updatedDate = convertDjangoTimeSimple(task.updated_at);
+
+      // Use updated date if available, otherwise created date
+      const displayDate = updatedDate || createdDate;
+
+      if (!displayDate) {
+        console.log("⚠️ Could not parse date for task:", task.id, task.title);
+        return;
+      }
+
+      // Determine action
+      let action = "updated";
+      if (!task.updated_at || task.updated_at === task.created_at) {
+        action = "created";
+      } else if (status === "done") {
+        action = "completed";
+      } else if (status === "review") {
+        action = "submitted for review";
+      } else if (status === "inprogress") {
+        action = "started working on";
+      }
+
+      // Get user name
+      let userName = window.djangoData?.user?.firstName || "You";
+      if (task.assigned_to_name) {
+        userName = task.assigned_to_name;
+      } else if (task.assigned_to) {
+        const currentUserId = window.djangoData?.user?.id;
+        if (task.assigned_to === currentUserId) {
+          userName = window.djangoData?.user?.firstName || "You";
+        } else {
+          userName = "a team member";
+        }
+      }
+
+      allActivities.push({
+        id: task.id,
+        title: task.title,
+        user: userName,
+        action: action,
+        date: displayDate,
+        timestamp: displayDate.getTime(),
+        status: status,
+      });
+    });
+  });
+
+  console.log(`📋 Total valid activities: ${allActivities.length}`);
+
+  if (allActivities.length === 0) {
+    activityContainer.innerHTML = "<li>No recent activity</li>";
+    return;
+  }
+
+  // Sort by timestamp (most recent first)
+  const recentActivities = allActivities
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 5);
+
+  recentActivities.forEach((activity) => {
+    const activityItem = document.createElement("li");
+
+    // Calculate time ago
+    const now = new Date();
+    const diffMs = now - activity.date;
+    const timeAgo = calculateTimeAgo(diffMs);
+
+    // Debug log (optional)
+    if (activity.action === "completed") {
+      console.log("✅ Completed task:", {
+        title: activity.title,
+        date: activity.date.toISOString(),
+        local: activity.date.toLocaleString("en-US", { timeZoneName: "short" }),
+        diffMs: diffMs,
+        timeAgo: timeAgo,
+      });
+    }
+
+    activityItem.innerHTML = `
+      <strong>${activity.user}</strong> 
+      ${activity.action} 
+      <em>${activity.title}</em> — 
+      <span class="muted">${timeAgo}</span>
+    `;
+
+    activityItem.style.cursor = "pointer";
+    activityItem.addEventListener("click", () => {
+      openTaskDetails(activity.id, activity.title);
+    });
+
+    activityContainer.appendChild(activityItem);
+  });
+
+  console.log("✅ Recent activity updated with corrected times");
+}
+
+function updateTeamOnline() {
+  const teamContainer = document.querySelector(".team-online .team-avatars");
+  if (!teamContainer) return;
+
+  console.log("👥 Updating team online...");
+
+  // For now, just clear and show a simple message
+  // In a real app, you would fetch team data
+  teamContainer.innerHTML = `
+    <div class="avatar online">${window.djangoData?.user?.firstName?.charAt(0) || "Y"}</div>
+    <span>${window.djangoData?.user?.firstName || "You"}</span>
+  `;
 }
 
 // =============================================
@@ -703,6 +1633,11 @@ function updateYourTasks(tasksData) {
 // =============================================
 
 function setupFormHandlers() {
+  // Remove existing listeners to prevent duplicates
+  document.removeEventListener("click", handleFormButtonClicks);
+  document.removeEventListener("submit", handleFormSubmit);
+
+  // Add fresh listeners
   document.addEventListener("click", handleFormButtonClicks);
   document.addEventListener("submit", handleFormSubmit);
 }
@@ -710,10 +1645,18 @@ function setupFormHandlers() {
 function handleFormButtonClicks(e) {
   if (
     e.target.closest(".close-form-btn") ||
-    (e.target.classList.contains("fa-times") && e.target.closest("button"))
+    (e.target.classList.contains("fa-times") && e.target.closest("submit-btn"))
   ) {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const form = e.target.closest("form");
+    if (form) {
+      console.log("Submit button clicked for form:", form.id);
+      // Don't trigger form submit here, let handleFormSubmit handle it
+      return;
+    }
+
     restoreDashboard();
     return;
   }
@@ -755,29 +1698,31 @@ function handleFormSubmit(e) {
 let isTaskSubmitting = false;
 
 async function handleTaskFormSubmit(form) {
-  if (isTaskSubmitting) {
-    console.log("⏳ Task submission already in progress");
+  // Check if form is already being submitted
+  if (form.dataset.submitting === "true") {
+    console.log("⏳ Form already submitting, ignoring duplicate");
     return false;
   }
 
-  isTaskSubmitting = true;
+  // Mark form as submitting
+  form.dataset.submitting = "true";
 
   const submitBtn = form.querySelector(".submit-btn");
   if (!submitBtn) {
     console.error("❌ No submit button found");
-    isTaskSubmitting = false;
+    form.dataset.submitting = "false"; // Reset flag
     return false;
   }
 
   const originalText = submitBtn.innerHTML;
-
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
   submitBtn.disabled = true;
 
   const timeoutId = setTimeout(() => {
     console.warn("⚠️ Task creation timed out");
-    resetTaskFormState(form, submitBtn, originalText);
-    isTaskSubmitting = false;
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
+    form.dataset.submitting = "false";
     showNotification("Task creation timed out. Please try again.", "error");
   }, 15000);
 
@@ -793,6 +1738,8 @@ async function handleTaskFormSubmit(form) {
       due_date: formData.get("due_date"),
     };
 
+    console.log("📤 Submitting task data:", data); // NOW data is defined
+
     const response = await fetch("/api/tasks/create/", {
       method: "POST",
       headers: {
@@ -805,25 +1752,50 @@ async function handleTaskFormSubmit(form) {
     clearTimeout(timeoutId);
     const result = await response.json();
 
+    console.log("📥 Task creation response:", result);
+
     if (result.success) {
       showNotification("Task created successfully!", "success");
-      await refreshDashboardData();
+
+      // Reset flag
+      form.dataset.submitting = "false";
+
+      console.log("🔄 Task created, scheduling dashboard refresh...");
+
       setTimeout(() => {
-        restoreDashboard();
+        console.log("📡 Refreshing dashboard data now...");
+        refreshDashboardData(true);
+
+        // If we're in a project, refresh that too
+        if (AppState.currentProjectId) {
+          console.log(
+            `🔄 Also refreshing project ${AppState.currentProjectId}`,
+          );
+          setTimeout(() => {
+            const projectName =
+              document.querySelector(".project-title")?.textContent || "";
+            openProjectDetails(AppState.currentProjectId, projectName);
+          }, 1500);
+        } else {
+          // Go back to dashboard
+          setTimeout(() => {
+            restoreDashboard();
+          }, 1000);
+        }
       }, 1500);
     } else {
       showNotification(result.error || "Failed to create task", "error");
-      resetTaskFormState(form, submitBtn, originalText);
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
+      form.dataset.submitting = "false";
     }
   } catch (error) {
     console.error("❌ Network error:", error);
     clearTimeout(timeoutId);
     showNotification("Network error. Please try again.", "error");
-    resetTaskFormState(form, submitBtn, originalText);
-  } finally {
-    setTimeout(() => {
-      isTaskSubmitting = false;
-    }, 1000);
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
+    form.dataset.submitting = "false";
   }
 
   return false;
@@ -921,7 +1893,7 @@ async function handleProjectFormSubmit(form) {
 
   try {
     const response = await fetch(
-      `/api/projects/check-duplicate/?name=${encodeURIComponent(projectName)}`
+      `/api/projects/check-duplicate/?name=${encodeURIComponent(projectName)}`,
     );
     const result = await response.json();
 
@@ -929,7 +1901,7 @@ async function handleProjectFormSubmit(form) {
       resetFormState(form, submitBtn, originalText, originalDisabled);
       showNotification(
         `You already have a project named "${result.project_name}"`,
-        "error"
+        "error",
       );
       isProjectSubmitting = false;
       return false;
@@ -960,7 +1932,7 @@ async function handleProjectFormSubmit(form) {
     } else {
       showNotification(
         createResult.error || "Failed to create project",
-        "error"
+        "error",
       );
       resetFormState(form, submitBtn, originalText, originalDisabled);
     }
@@ -1036,17 +2008,19 @@ function showNewTaskForm(prefilledStatus = null) {
 function setupTaskForm() {
   console.log("🔧 Setting up task form...");
 
-  setupProjectDropdown();
-
   const taskForm = document.getElementById("taskForm");
   if (taskForm) {
+    // Set up form submit handler
     taskForm.onsubmit = function (e) {
       e.preventDefault();
+      e.stopPropagation();
+      console.log("Task form submit handler called");
       handleTaskFormSubmit(this);
       return false;
     };
   }
 
+  // Set up close button
   const closeBtn = document.querySelector(".close-form-btn");
   if (closeBtn) {
     closeBtn.onclick = function (e) {
@@ -1055,12 +2029,20 @@ function setupTaskForm() {
     };
   }
 
+  // Set up cancel button
   const cancelBtn = document.querySelector(".cancel-btn");
   if (cancelBtn) {
     cancelBtn.onclick = function (e) {
       e.preventDefault();
       restoreDashboard();
     };
+  }
+
+  // Try to set up project dropdown if elements exist
+  try {
+    setupProjectDropdown();
+  } catch (error) {
+    console.log("Project dropdown setup failed, continuing without it:", error);
   }
 
   console.log("✅ Task form setup complete");
@@ -1073,8 +2055,14 @@ function setupProjectDropdown() {
   const optionsContainer = document.getElementById("projectOptions");
   const selectedText = document.getElementById("selectedProjectText");
 
-  if (!customDropdown || !selectElement || !searchInput || !optionsContainer) {
-    console.log("⚠️ Dropdown elements not found");
+  if (!customDropdown || !selectElement) {
+    console.log("⚠️ Custom dropdown elements not found, using regular select");
+    // Just make sure the regular select works
+    if (selectElement) {
+      selectElement.addEventListener("change", function () {
+        updateAssigneeDropdown(this.value);
+      });
+    }
     return;
   }
 
@@ -1134,6 +2122,75 @@ function setupProjectDropdown() {
     }
   });
 }
+
+// function setupProjectDropdown() {
+//   const customDropdown = document.getElementById("customProjectDropdown");
+//   const selectElement = document.getElementById("taskProject");
+//   const searchInput = document.getElementById("projectSearch");
+//   const optionsContainer = document.getElementById("projectOptions");
+//   const selectedText = document.getElementById("selectedProjectText");
+
+//   if (!customDropdown || !selectElement || !searchInput || !optionsContainer) {
+//     console.log("⚠️ Dropdown elements not found");
+//     return;
+//   }
+
+//   const options = Array.from(selectElement.options).slice(1);
+//   optionsContainer.innerHTML = "";
+
+//   options.forEach((option) => {
+//     const optionDiv = document.createElement("div");
+//     optionDiv.className = "dropdown-option";
+//     optionDiv.textContent = option.textContent;
+//     optionDiv.setAttribute("data-value", option.value);
+
+//     optionDiv.onclick = function () {
+//       selectedText.textContent = option.textContent;
+//       selectElement.value = option.value;
+//       selectElement.dispatchEvent(new Event("change"));
+//       customDropdown.classList.remove("open");
+
+//       document.querySelectorAll(".dropdown-option").forEach((opt) => {
+//         opt.classList.remove("selected");
+//       });
+//       this.classList.add("selected");
+
+//       updateAssigneeDropdown(option.value);
+//     };
+
+//     optionsContainer.appendChild(optionDiv);
+//   });
+
+//   customDropdown.querySelector(".dropdown-selected").onclick = function (e) {
+//     e.stopPropagation();
+//     customDropdown.classList.toggle("open");
+//     if (customDropdown.classList.contains("open")) {
+//       searchInput.focus();
+//     }
+//   };
+
+//   searchInput.addEventListener("input", function () {
+//     const searchTerm = this.value.toLowerCase();
+//     const allOptions = optionsContainer.querySelectorAll(".dropdown-option");
+
+//     allOptions.forEach((option) => {
+//       const text = option.textContent.toLowerCase();
+//       option.style.display = text.includes(searchTerm) ? "block" : "none";
+//     });
+//   });
+
+//   document.addEventListener("click", function (e) {
+//     if (!customDropdown.contains(e.target)) {
+//       customDropdown.classList.remove("open");
+//     }
+//   });
+
+//   document.addEventListener("keydown", function (e) {
+//     if (e.key === "Escape" && customDropdown.classList.contains("open")) {
+//       customDropdown.classList.remove("open");
+//     }
+//   });
+// }
 
 function updateAssigneeDropdown(projectId) {
   if (!projectId) {
@@ -1231,7 +2288,7 @@ async function openTaskDetails(taskId, taskTitle) {
     history.pushState(
       { page: "task-details", taskId: taskId },
       "",
-      `#task-${taskId}`
+      `#task-${taskId}`,
     );
 
     stopAutoRefresh();
@@ -1295,7 +2352,7 @@ function setupTaskDetailsPage(taskId) {
 
   // Subtask checkboxes
   const subtaskCheckboxes = document.querySelectorAll(
-    ".checklist input[type='checkbox']"
+    ".checklist input[type='checkbox']",
   );
   subtaskCheckboxes.forEach((checkbox) => {
     checkbox.addEventListener("change", function () {
@@ -1362,6 +2419,8 @@ function setupTaskDetailsPage(taskId) {
 
 async function updateTaskStatus(taskId, newStatus) {
   try {
+    console.log(`🔄 Updating task ${taskId} status to ${newStatus}`);
+
     const response = await fetch("/api/tasks/update-status/", {
       method: "POST",
       headers: {
@@ -1379,23 +2438,40 @@ async function updateTaskStatus(taskId, newStatus) {
     if (result.success) {
       showNotification(`Task status updated to ${newStatus}`, "success");
 
-      // Update the status badge/indicator
-      const statusElement = document.querySelector(".status-select");
-      if (statusElement) {
-        statusElement.className = `status-select ${newStatus}`;
-        statusElement.value = newStatus;
+      // Debounced refresh
+      setTimeout(() => {
+        console.log("🔄 Refreshing dashboard data after status update...");
+        refreshDashboardData(true); // Force refresh
+      }, 300);
+
+      // Update any open task details
+      if (AppState.currentTaskId === taskId) {
+        setTimeout(() => {
+          const taskTitle =
+            document.getElementById("taskTitle")?.textContent || "Task";
+          openTaskDetails(taskId, taskTitle);
+        }, 500);
       }
 
-      // Refresh dashboard if we're on it
-      if (AppState.currentPage === "dashboard") {
-        refreshDashboardData();
+      // If we're in project details, refresh that too
+      if (AppState.currentProjectId) {
+        setTimeout(() => {
+          const projectName =
+            document.querySelector(".project-title")?.textContent || "";
+          openProjectDetails(AppState.currentProjectId, projectName);
+        }, 500);
       }
+
+      return result;
     } else {
-      showNotification(result.error || "Failed to update status", "error");
+      console.error("❌ Failed to update task status:", result.error);
+      showNotification(result.error || "Failed to update task status", "error");
+      throw new Error(result.error || "Failed to update task status");
     }
   } catch (error) {
-    console.error("Error updating task status:", error);
+    console.error("❌ Network error updating task status:", error);
     showNotification("Network error updating status", "error");
+    throw error;
   }
 }
 
@@ -1464,7 +2540,7 @@ function updateSubtask(taskId, checkbox) {
   console.log(
     `Updating subtask for task ${taskId}: ${subtaskText} - ${
       isChecked ? "completed" : "pending"
-    }`
+    }`,
   );
 
   // Update progress bar
@@ -1473,7 +2549,7 @@ function updateSubtask(taskId, checkbox) {
 
 function updateSubtaskProgress() {
   const checkboxes = document.querySelectorAll(
-    ".checklist input[type='checkbox']"
+    ".checklist input[type='checkbox']",
   );
   const total = checkboxes.length;
   const completed = Array.from(checkboxes).filter((cb) => cb.checked).length;
@@ -1582,7 +2658,7 @@ function showLabelPicker(taskId) {
 
   const labelColor = prompt(
     "Enter label color (red, blue, green, yellow, purple):",
-    "blue"
+    "blue",
   );
 
   const labelsContainer = document.querySelector(".labels");
@@ -1594,7 +2670,7 @@ function showLabelPicker(taskId) {
 
   labelsContainer.insertBefore(
     newLabel,
-    labelsContainer.querySelector(".add-label")
+    labelsContainer.querySelector(".add-label"),
   );
 
   showNotification("Label added", "success");
@@ -1631,12 +2707,38 @@ async function openProjectDetails(projectId, projectName) {
   try {
     const response = await fetch(`/api/projects/${projectId}/`);
 
+    // Debug the raw response
+    console.log("📡 Raw response:", response);
+
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      console.error(
+        "❌ API returned HTML instead of JSON:",
+        text.substring(0, 200),
+      );
       throw new Error("API returned HTML instead of JSON.");
     }
 
     const data = await response.json();
+
+    // Debug the data structure
+    console.log("📊 Project API response:", {
+      success: data.success,
+      hasProject: !!data.project,
+      hasStats: !!data.stats,
+      hasTasks: !!data.tasks,
+      project: data.project,
+      stats: data.stats,
+      tasks: data.tasks
+        ? {
+            todo: data.tasks.todo?.length || 0,
+            inprogress: data.tasks.inprogress?.length || 0,
+            review: data.tasks.review?.length || 0,
+            done: data.tasks.done?.length || 0,
+          }
+        : "No tasks",
+    });
 
     if (!data.success) {
       throw new Error(data.error || "Failed to load project");
@@ -1654,7 +2756,7 @@ async function openProjectDetails(projectId, projectName) {
     history.pushState(
       { page: "project-details", projectId: projectId },
       "",
-      `#project-${projectId}`
+      `#project-${projectId}`,
     );
 
     stopAutoRefresh();
@@ -1669,6 +2771,44 @@ async function openProjectDetails(projectId, projectName) {
 }
 
 function createProjectDetailsHTML(data, projectId) {
+  console.log("🎨 Creating project details HTML with data:", data);
+
+  // Ensure we have default values
+  const project = data.project || {};
+  const stats = data.stats || {
+    total_tasks: 0,
+    completed_tasks: 0,
+    overdue_tasks: 0,
+    progress: 0,
+  };
+
+  const tasks = data.tasks || {
+    todo: [],
+    inprogress: [],
+    review: [],
+    done: [],
+  };
+
+  // Format dates
+  const createdDate = project.created_at
+    ? convertDjangoTimeSimple(project.created_at)
+    : new Date();
+
+  const formattedDate = createdDate
+    ? createdDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+    : "Unknown date";
+
+  // Create task cards HTML
+  const tasksGridHTML = createTasksGridHTML(tasks, projectId);
+
+  // Create team members HTML - check if team data exists
+  const team = data.team || [];
+  const teamMembersHTML = createTeamMembersHTML(team);
+
   return `
     <div class="simple-project-details">
       <div class="project-header">
@@ -1676,12 +2816,9 @@ function createProjectDetailsHTML(data, projectId) {
           <i class="fa fa-arrow-left"></i> Back to Dashboard
         </button>
         <div class="project-title-section">
-          <h1>${data.project.name}</h1>
+          <h1>${project.name || "Unnamed Project"}</h1>
           <div class="project-meta">
-            <span>Owned by ${data.project.owner.name}</span>
-            <span>• Created ${new Date(
-              data.project.created_at
-            ).toLocaleDateString()}</span>
+            <span>Owned by ${project.owner?.name || project.owner?.username || "Unknown"} • Created ${formattedDate}</span>
           </div>
         </div>
         <div class="project-actions">
@@ -1697,24 +2834,22 @@ function createProjectDetailsHTML(data, projectId) {
       <div class="project-progress-section">
         <div class="progress-header">
           <h3>Progress</h3>
-          <div class="progress-percent">${data.stats.progress}%</div>
+          <div class="progress-percent">${stats.progress || 0}%</div>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${
-            data.stats.progress
-          }%"></div>
+          <div class="progress-fill" style="width: ${stats.progress || 0}%"></div>
         </div>
         <div class="progress-stats">
           <div class="stat">
-            <div class="stat-number">${data.stats.completed_tasks}</div>
+            <div class="stat-number">${stats.completed_tasks || 0}</div>
             <div class="stat-label">Completed</div>
           </div>
           <div class="stat">
-            <div class="stat-number">${data.stats.total_tasks}</div>
+            <div class="stat-number">${stats.total_tasks || 0}</div>
             <div class="stat-label">Total Tasks</div>
           </div>
           <div class="stat">
-            <div class="stat-number">${data.stats.overdue_tasks}</div>
+            <div class="stat-number">${stats.overdue_tasks || 0}</div>
             <div class="stat-label">Overdue</div>
           </div>
         </div>
@@ -1723,16 +2858,13 @@ function createProjectDetailsHTML(data, projectId) {
       <div class="project-description-section">
         <h3>Description</h3>
         <div class="description-content">
-          ${
-            data.project.description ||
-            '<em style="color: #888;">No description provided</em>'
-          }
+          ${project.description || '<em style="color: #888;">No description provided</em>'}
         </div>
       </div>
       
       <div class="project-tasks-section">
         <div class="tasks-header">
-          <h3>Tasks (${data.stats.total_tasks})</h3>
+          <h3>Tasks (${stats.total_tasks || 0})</h3>
           <button class="qa-btn" onclick="addTaskToProject(${projectId})">
             <i class="fa fa-plus"></i> Add Task
           </button>
@@ -1747,18 +2879,168 @@ function createProjectDetailsHTML(data, projectId) {
         </div>
         
         <div class="tasks-grid" id="tasksGrid-${projectId}">
-          ${renderTasksGrid(data.tasks, projectId)}
+          ${tasksGridHTML}
         </div>
       </div>
       
-      <div class="project-team-section">
-        <h3>Team Members (${data.team.length})</h3>
-        <div class="team-grid">
-          ${renderTeamMembers(data.team)}
+      ${
+        team.length > 0
+          ? `
+        <div class="project-team-section">
+          <h3>Team Members (${team.length})</h3>
+          <div class="team-grid">
+            ${teamMembersHTML}
+          </div>
         </div>
-      </div>
+      `
+          : ""
+      }
     </div>
   `;
+}
+
+function createTasksGridHTML(tasks, projectId) {
+  // Combine all tasks
+  const allTasks = [
+    ...(tasks.todo || []),
+    ...(tasks.inprogress || []),
+    ...(tasks.review || []),
+    ...(tasks.done || []),
+  ];
+
+  console.log("📋 Creating tasks grid with", allTasks.length, "tasks");
+
+  if (allTasks.length === 0) {
+    return `
+      <div class="no-tasks">
+        <i class="fas fa-clipboard-list" style="font-size: 48px; color: #666; margin-bottom: 16px;"></i>
+        <h4>No tasks yet</h4>
+        <p>Create your first task for this project</p>
+        <button class="qa-btn" onclick="addTaskToProject(${projectId})" style="margin-top: 16px;">
+          <i class="fa fa-plus"></i> Create First Task
+        </button>
+      </div>
+    `;
+  }
+
+  return allTasks
+    .map((task) => {
+      const title = (task.title || "Untitled Task")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"');
+
+      // Get assignee info
+      let assigneeHtml = '<span class="unassigned">Unassigned</span>';
+      if (task.assigned_to) {
+        const assigneeName =
+          task.assigned_to.name || task.assigned_to.username || "Unknown";
+        const initial = assigneeName.charAt(0).toUpperCase();
+        assigneeHtml = `
+        <div class="assignee-avatar" title="${assigneeName}">
+          ${initial}
+        </div>
+      `;
+      }
+
+      // Format due date
+      let dueDateHtml = '<span class="no-due-date">No deadline</span>';
+      if (task.due_date) {
+        const dueDate = new Date(task.due_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let dueClass = "";
+        let dueText = dueDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+
+        if (diffDays === 0) {
+          dueClass = "urgent";
+          dueText = "Due today";
+        } else if (diffDays < 0) {
+          dueClass = "overdue";
+          dueText = "Overdue";
+        } else if (diffDays === 1) {
+          dueClass = "warning";
+          dueText = "Due tomorrow";
+        } else if (diffDays <= 7) {
+          dueClass = "warning";
+          dueText = `Due in ${diffDays} days`;
+        }
+
+        dueDateHtml = `<div class="task-due-date ${dueClass}">${dueText}</div>`;
+      }
+
+      return `
+      <div class="task-card" data-task-id="${task.id}" data-status="${task.status}" 
+           onclick="openTaskDetails(${task.id}, '${title}')">
+        <div class="task-card-header">
+          <div class="task-status status-${task.status}">
+            ${task.status_display || task.status}
+          </div>
+          <div class="task-priority priority-${task.priority || "medium"}">
+            ${task.priority || "medium"}
+          </div>
+        </div>
+        <div class="task-card-body">
+          <h4>${task.title || "Untitled Task"}</h4>
+          <p class="task-description">
+            ${
+              task.description
+                ? task.description.length > 100
+                  ? task.description.substring(0, 100) + "..."
+                  : task.description
+                : "No description"
+            }
+          </p>
+        </div>
+        <div class="task-card-footer">
+          <div class="task-assignee">
+            ${assigneeHtml}
+          </div>
+          ${dueDateHtml}
+        </div>
+      </div>
+    `;
+    })
+    .join("");
+}
+
+function createTeamMembersHTML(team) {
+  if (!team || team.length === 0) {
+    return '<div class="no-team">No team members yet</div>';
+  }
+
+  return team
+    .map((member) => {
+      const name = member.name || member.username || "Unknown";
+      const initial = name.charAt(0).toUpperCase();
+
+      return `
+      <div class="team-member-card">
+        <div class="member-avatar ${member.is_owner ? "owner" : ""}">
+          ${initial}
+          ${
+            member.is_owner
+              ? '<span class="owner-badge" title="Project Owner">👑</span>'
+              : ""
+          }
+        </div>
+        <div class="member-info">
+          <h4>${name}</h4>
+          <p class="member-role">${member.is_owner ? "Owner" : "Member"}</p>
+          <p class="member-stats">
+            ${member.completed_tasks || 0} of ${member.task_count || 0} tasks completed
+          </p>
+        </div>
+      </div>
+    `;
+    })
+    .join("");
 }
 
 function setupProjectDetailsPage(projectId, data) {
@@ -1790,7 +3072,7 @@ function setupProjectDetailsPage(projectId, data) {
 
 function filterTasks(filter, projectId) {
   const taskCards = document.querySelectorAll(
-    `#tasksGrid-${projectId} .task-card`
+    `#tasksGrid-${projectId} .task-card`,
   );
   const filterBtns = document.querySelectorAll(`.task-filters .filter-btn`);
 
@@ -1836,16 +3118,16 @@ function renderTasksGrid(tasksByStatus, projectId) {
       const title = task.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
       return `
     <div class="task-card" data-task-id="${task.id}" data-status="${
-        task.status
-      }" 
+      task.status
+    }" 
          onclick="openTaskDetails(${task.id}, '${title}')">
       <div class="task-card-header">
         <div class="task-status status-${task.status}">${
-        task.status_display || task.status
-      }</div>
+          task.status_display || task.status
+        }</div>
         <div class="task-priority priority-${task.priority}">${
-        task.priority
-      }</div>
+          task.priority
+        }</div>
       </div>
       <div class="task-card-body">
         <h4>${task.title}</h4>
@@ -1896,11 +3178,11 @@ function renderTeamMembers(team) {
         <h4>${member.name}</h4>
         <p class="member-role">${member.is_owner ? "Owner" : "Member"}</p>
         <p class="member-stats">${member.task_count} tasks • ${
-        member.completed_tasks
-      } completed</p>
+          member.completed_tasks
+        } completed</p>
       </div>
     </div>
-  `
+  `,
     )
     .join("");
 }
@@ -2003,6 +3285,44 @@ async function showAllProjects() {
   } finally {
     hideLoader();
   }
+}
+
+function createProjectCard(project) {
+  const projectCard = document.createElement("div");
+  projectCard.className = `pinned-project ${project.css_class || ""}`;
+  projectCard.setAttribute("data-project-id", project.id);
+
+  const projectName =
+    project.name.length > 20
+      ? project.name.substring(0, 20) + "..."
+      : project.name;
+
+  projectCard.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <h4>${projectName}</h4>
+      <button class="project-menu-btn" 
+        onclick="event.stopPropagation(); showProjectContextMenu(event, ${
+          project.id
+        })">
+        <i class="fas fa-ellipsis-v"></i>
+      </button>
+    </div>
+    <small>${project.progress || 0}% complete • ${
+      project.task_count || 0
+    } task${project.task_count !== 1 ? "s" : ""}</small>
+    <div class="progress">
+      <div class="progress-fill" style="width:${project.progress || 0}%"></div>
+    </div>
+  `;
+
+  // Add click event to open project details
+  projectCard.onclick = function (e) {
+    if (!e.target.closest(".project-menu-btn")) {
+      openProjectDetails(project.id, project.name);
+    }
+  };
+
+  return projectCard;
 }
 
 function createEmptyProjectsPage() {
@@ -2163,6 +3483,7 @@ function restoreDashboard() {
     setupEventListeners();
     setupSidebar();
     setupFormHandlers();
+    setupTaskDragAndDrop(); // Important: Re-setup drag and drop
     loadDashboardData();
   }, 100);
 }
@@ -2187,9 +3508,42 @@ async function loadDashboardData() {
 }
 
 function updateDashboardUI() {
+  if (!AppState.cachedData) {
+    console.log("⚠️ No cached data available");
+    return;
+  }
+
+  console.log("📊 Updating dashboard UI with cached data", {
+    hasTasks: !!AppState.cachedData.tasks,
+    hasCounts: !!AppState.cachedData.counts,
+    hasProjects: !!AppState.cachedData.projects,
+  });
+
+  // Update counts
   updateDashboardCounts(AppState.cachedData.counts);
-  updatePinnedProjectsFromCache();
-  console.log("✅ Dashboard UI updated");
+
+  // Update pinned projects (this one works)
+  updatePinnedProjects(AppState.cachedData);
+
+  // Update tasks due today
+  updateTasksDueToday(AppState.cachedData);
+
+  // Update Kanban board - with clearing
+  if (AppState.cachedData.tasks) {
+    console.log("🔄 Clearing and updating Kanban board...");
+    updateKanbanBoard(AppState.cachedData.tasks);
+  }
+
+  // Update your tasks
+  updateYourTasks(AppState.cachedData.tasks);
+
+  // Update recent activity
+  updateRecentActivity(AppState.cachedData.tasks);
+
+  // Update team
+  updateTeamOnline();
+
+  console.log("✅ Complete dashboard UI updated");
 }
 
 // =============================================
@@ -2253,28 +3607,28 @@ function showNotification(message, type = "success") {
       type === "success"
         ? "rgba(0,255,157,0.1)"
         : type === "error"
-        ? "rgba(255,107,107,0.1)"
-        : type === "info"
-        ? "rgba(0,170,255,0.1)"
-        : "rgba(255,255,255,0.1)"
+          ? "rgba(255,107,107,0.1)"
+          : type === "info"
+            ? "rgba(0,170,255,0.1)"
+            : "rgba(255,255,255,0.1)"
     };
     border: 1px solid ${
       type === "success"
         ? "rgba(0,255,157,0.3)"
         : type === "error"
-        ? "rgba(255,107,107,0.3)"
-        : type === "info"
-        ? "rgba(0,170,255,0.3)"
-        : "rgba(255,255,255,0.3)"
+          ? "rgba(255,107,107,0.3)"
+          : type === "info"
+            ? "rgba(0,170,255,0.3)"
+            : "rgba(255,255,255,0.3)"
     };
     color: ${
       type === "success"
         ? "#00ff9d"
         : type === "error"
-        ? "#ff6b6b"
-        : type === "info"
-        ? "#00aaff"
-        : "#fff"
+          ? "#ff6b6b"
+          : type === "info"
+            ? "#00aaff"
+            : "#fff"
     };
     padding: 12px 16px;
     border-radius: 8px;
@@ -2455,22 +3809,25 @@ function createTasksPageHTML() {
 }
 
 function initializeTasksPage(data) {
-  console.log("🔧 Initializing tasks page with", data.tasks ? 'data' : 'no data');
-  
+  console.log(
+    "🔧 Initializing tasks page with",
+    data.tasks ? "data" : "no data",
+  );
+
   // Setup view toggles
   setupViewToggles();
-  
+
   // Setup filter tabs
   setupFilterTabs();
-  
+
   // Populate both views
   populateKanbanView(data.tasks || {});
   populateListView(data.tasks || {});
-  
+
   // Setup new task button
-  const newTaskBtn = document.getElementById('newTaskBtnFull');
+  const newTaskBtn = document.getElementById("newTaskBtnFull");
   if (newTaskBtn) {
-    newTaskBtn.addEventListener('click', function(e) {
+    newTaskBtn.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       console.log("New Task button clicked from tasks page");
@@ -2479,7 +3836,7 @@ function initializeTasksPage(data) {
   } else {
     console.error("❌ New task button not found!");
   }
-  
+
   console.log("✅ Tasks page initialized");
 }
 
@@ -2605,15 +3962,15 @@ function createKanbanColumnsForTasks(tasksData) {
     <div class="kanban-column" data-status="${column.id}">
       <div class="column-header">
         <h4>${column.title} <span class="task-count">${
-        column.tasks.length
-      }</span></h4>
+          column.tasks.length
+        }</span></h4>
       </div>
       <div class="column-tasks">
         ${createTaskCardsForColumn(column.tasks)}
       </div>
       <button class="add-task-btn">+ Add task</button>
     </div>
-  `
+  `,
     )
     .join("");
 }
@@ -2664,8 +4021,8 @@ function populateKanbanView(tasksData) {
       <div class="tasks-column" data-status="${column.id}">
         <div class="column-header">
           <h3>${column.title} <span class="task-count">${
-      columnTasks.length
-    }</span></h3>
+            columnTasks.length
+          }</span></h3>
         </div>
         <div class="column-tasks" id="tasks-${column.id}">
           ${createTaskCardsForColumn(columnTasks)}
@@ -2708,7 +4065,7 @@ function createTaskCardsForColumn(tasks) {
           task.description
             ? `<p class="task-description">${task.description.substring(
                 0,
-                100
+                100,
               )}${task.description.length > 100 ? "..." : ""}</p>`
             : ""
         }
@@ -2738,7 +4095,7 @@ function createTaskCardsForColumn(tasks) {
         </div>
       </div>
     </div>
-  `
+  `,
     )
     .join("");
 }
@@ -2823,7 +4180,7 @@ function populateListView(tasksData) {
         }
       </div>
     </div>
-  `
+  `,
     )
     .join("");
 
@@ -2871,7 +4228,7 @@ function applyTaskFilter(filterType) {
       case "my":
         // Show tasks assigned to current user
         const assigneeElement = taskElement.querySelector(
-          ".task-assignee small, .task-assignee .unassigned"
+          ".task-assignee small, .task-assignee .unassigned",
         );
         if (assigneeElement) {
           const assigneeText = assigneeElement.textContent.toLowerCase();
@@ -2940,7 +4297,7 @@ function isTaskOverdue(task) {
   if (!task.due_date) return false;
   const dueDate = new Date(task.due_date);
   const today = new Date();
-  return dueDate < today && task.status !== 'done';
+  return dueDate < today && task.status !== "done";
 }
 
 // =============================================
@@ -2953,7 +4310,7 @@ function showTaskMenu(event, taskId) {
 
   // Remove any existing menus
   const existingMenus = document.querySelectorAll(".context-menu");
-  existingMenus.forEach(menu => menu.remove());
+  existingMenus.forEach((menu) => menu.remove());
 
   // Create context menu
   const menu = document.createElement("div");
@@ -3007,9 +4364,11 @@ async function toggleTaskStar(taskId) {
   try {
     // In a real app, you would have a starred field in your Task model
     // For now, we'll use localStorage
-    const starredTasks = JSON.parse(localStorage.getItem('starredTasks') || '[]');
+    const starredTasks = JSON.parse(
+      localStorage.getItem("starredTasks") || "[]",
+    );
     const isStarred = starredTasks.includes(taskId);
-    
+
     if (isStarred) {
       // Remove from starred
       const index = starredTasks.indexOf(taskId);
@@ -3020,16 +4379,16 @@ async function toggleTaskStar(taskId) {
       starredTasks.push(taskId);
       showNotification("Task starred", "success");
     }
-    
-    localStorage.setItem('starredTasks', JSON.stringify(starredTasks));
-    
+
+    localStorage.setItem("starredTasks", JSON.stringify(starredTasks));
+
     // Update UI
-    const starBtn = document.querySelector('.task-actions .fa-star');
+    const starBtn = document.querySelector(".task-actions .fa-star");
     if (starBtn) {
       if (isStarred) {
-        starBtn.parentElement.classList.remove('starred');
+        starBtn.parentElement.classList.remove("starred");
       } else {
-        starBtn.parentElement.classList.add('starred');
+        starBtn.parentElement.classList.add("starred");
       }
     }
   } catch (error) {
@@ -3040,29 +4399,29 @@ async function toggleTaskStar(taskId) {
 
 async function duplicateTask(taskId) {
   if (!confirm("Duplicate this task?")) return;
-  
+
   try {
     // Fetch the original task
     const response = await fetch(`/api/tasks/${taskId}/`);
     const data = await response.json();
-    
+
     if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch task');
+      throw new Error(data.error || "Failed to fetch task");
     }
-    
+
     const task = data.task;
-    
+
     // Create a duplicate with "Copy" in the title
     const duplicateData = {
       title: `${task.title} (Copy)`,
       description: task.description,
       project: task.project.id,
       assigned_to: task.assigned_to?.id || null,
-      status: 'todo', // Reset status to todo
+      status: "todo", // Reset status to todo
       priority: task.priority,
       due_date: task.due_date,
     };
-    
+
     const createResponse = await fetch("/api/tasks/create/", {
       method: "POST",
       headers: {
@@ -3071,9 +4430,9 @@ async function duplicateTask(taskId) {
       },
       body: JSON.stringify(duplicateData),
     });
-    
+
     const createResult = await createResponse.json();
-    
+
     if (createResult.success) {
       showNotification("Task duplicated successfully!", "success");
       // Open the new task
@@ -3081,7 +4440,10 @@ async function duplicateTask(taskId) {
         openTaskDetails(createResult.task.id, createResult.task.title);
       }, 1000);
     } else {
-      showNotification(createResult.error || "Failed to duplicate task", "error");
+      showNotification(
+        createResult.error || "Failed to duplicate task",
+        "error",
+      );
     }
   } catch (error) {
     console.error("Error duplicating task:", error);
@@ -3094,10 +4456,15 @@ async function duplicateTask(taskId) {
 // =============================================
 
 async function deleteTask(taskId) {
-  if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) return;
-  
+  if (
+    !confirm(
+      "Are you sure you want to delete this task? This action cannot be undone.",
+    )
+  )
+    return;
+
   showLoader();
-  
+
   try {
     const response = await fetch(`/api/tasks/${taskId}/delete/`, {
       method: "POST",
@@ -3106,18 +4473,26 @@ async function deleteTask(taskId) {
         "X-CSRFToken": getCSRFToken(),
       },
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       showNotification("Task deleted successfully!", "success");
-      
-      // Go back to dashboard
-      setTimeout(() => {
-        restoreDashboard();
-        // Refresh dashboard data
-        refreshDashboardData(true); // Force refresh
-      }, 1000);
+
+      // Refresh dashboard data immediately
+      await refreshDashboardData(true);
+
+      // If we're in project details, refresh that too
+      if (AppState.currentProjectId) {
+        const projectName =
+          document.querySelector(".project-title")?.textContent || "";
+        openProjectDetails(AppState.currentProjectId, projectName);
+      } else {
+        // Otherwise go back to dashboard
+        setTimeout(() => {
+          restoreDashboard();
+        }, 500);
+      }
     } else {
       showNotification(result.error || "Failed to delete task", "error");
     }
@@ -3134,26 +4509,30 @@ async function deleteTask(taskId) {
 // =============================================
 
 function editComment(commentId) {
-  const allComments = document.querySelectorAll('.activity-item.comment');
+  const allComments = document.querySelectorAll(".activity-item.comment");
   let commentElement = null;
-  
+
   // Find the comment element
-  allComments.forEach(comment => {
-    const editLink = comment.querySelector('a');
-    if (editLink && editLink.onclick && editLink.onclick.toString().includes(commentId)) {
+  allComments.forEach((comment) => {
+    const editLink = comment.querySelector("a");
+    if (
+      editLink &&
+      editLink.onclick &&
+      editLink.onclick.toString().includes(commentId)
+    ) {
       commentElement = comment;
     }
   });
-  
+
   if (!commentElement) return;
-  
-  const commentBody = commentElement.querySelector('.comment-body p');
+
+  const commentBody = commentElement.querySelector(".comment-body p");
   const currentContent = commentBody.textContent;
-  
+
   // Replace with textarea for editing
-  const textarea = document.createElement('textarea');
+  const textarea = document.createElement("textarea");
   textarea.value = currentContent;
-  textarea.className = 'comment-edit-textarea';
+  textarea.className = "comment-edit-textarea";
   textarea.style.cssText = `
     width: 100%;
     min-height: 60px;
@@ -3165,18 +4544,18 @@ function editComment(commentId) {
     font-family: inherit;
     resize: vertical;
   `;
-  
+
   commentBody.parentNode.replaceChild(textarea, commentBody);
-  
+
   // Add save/cancel buttons
-  const actionsDiv = commentElement.querySelector('.comment-actions');
+  const actionsDiv = commentElement.querySelector(".comment-actions");
   const originalHTML = actionsDiv.innerHTML;
-  
+
   actionsDiv.innerHTML = `
     <button class="qa-btn small-btn" onclick="saveCommentEdit(${commentId}, this)">Save</button>
     <button class="qa-btn small-btn cancel-btn" onclick="cancelCommentEdit(this, '${currentContent.replace(/'/g, "\\'").replace(/"/g, '\\"')}')">Cancel</button>
   `;
-  
+
   // Store original state
   commentElement.dataset.originalContent = currentContent;
   commentElement.dataset.originalActions = originalHTML;
@@ -3235,16 +4614,16 @@ function cancelCommentEdit(button, originalContent) {
 
 async function moveTaskToProject(taskId) {
   showLoader();
-  
+
   try {
     // Get all projects for the current user
-    const response = await fetch('/api/projects/all/');
+    const response = await fetch("/api/projects/all/");
     const data = await response.json();
-    
+
     if (data.success) {
       // Create project selection modal
-      const modal = document.createElement('div');
-      modal.className = 'modal-overlay';
+      const modal = document.createElement("div");
+      modal.className = "modal-overlay";
       modal.style.cssText = `
         position: fixed;
         top: 0;
@@ -3257,8 +4636,8 @@ async function moveTaskToProject(taskId) {
         justify-content: center;
         z-index: 10000;
       `;
-      
-      const modalContent = document.createElement('div');
+
+      const modalContent = document.createElement("div");
       modalContent.style.cssText = `
         background: #1a1a1a;
         border: 1px solid #333;
@@ -3268,11 +4647,13 @@ async function moveTaskToProject(taskId) {
         width: 90%;
         color: white;
       `;
-      
-      const projectsOptions = data.projects.map(project => 
-        `<option value="${project.id}">${project.name}</option>`
-      ).join('');
-      
+
+      const projectsOptions = data.projects
+        .map(
+          (project) => `<option value="${project.id}">${project.name}</option>`,
+        )
+        .join("");
+
       modalContent.innerHTML = `
         <h3 style="margin-top: 0;">Move Task to Project</h3>
         <p>Select a project to move this task to:</p>
@@ -3288,10 +4669,10 @@ async function moveTaskToProject(taskId) {
           </button>
         </div>
       `;
-      
+
       modal.appendChild(modalContent);
       document.body.appendChild(modal);
-      
+
       // Store modal reference
       window.currentModal = modal;
     }
@@ -3459,7 +4840,7 @@ function toggleTheme() {
 
 function logoutUser() {
   if (confirm("Are you sure you want to logout?")) {
-    window.location.href = "/logout/";
+    window.location.href = "/accounts/logout/";
   }
 }
 
@@ -3469,59 +4850,312 @@ function logoutUser() {
 
 function setupTaskDragAndDrop() {
   const kanbanBoard = document.getElementById("kanbanBoard");
-  if (!kanbanBoard) return;
+  if (!kanbanBoard) {
+    console.log("❌ Kanban board not found for drag and drop");
+    return;
+  }
+
+  console.log("🎯 Setting up drag and drop...");
 
   let draggedTask = null;
+  let draggedTaskOriginalColumn = null;
 
-  kanbanBoard.addEventListener("dragstart", function (e) {
-    if (
-      e.target.classList.contains("kanban-task") &&
-      !e.target.classList.contains("empty")
-    ) {
-      draggedTask = e.target;
-      e.target.style.opacity = "0.5";
-    }
-  });
+  // Add dragstart event to each task
+  document.addEventListener(
+    "dragstart",
+    function (e) {
+      if (
+        e.target.classList.contains("kanban-task") &&
+        !e.target.classList.contains("empty") &&
+        !e.target.classList.contains("more-tasks")
+      ) {
+        draggedTask = e.target;
+        draggedTaskOriginalColumn = draggedTask.closest(".kanban-column");
 
-  kanbanBoard.addEventListener("dragend", function (e) {
-    if (draggedTask) {
-      draggedTask.style.opacity = "1";
-      draggedTask = null;
-    }
-  });
+        // Set data for transfer
+        e.dataTransfer.setData(
+          "text/plain",
+          e.target.getAttribute("data-task-id"),
+        );
+        e.dataTransfer.effectAllowed = "move";
 
-  kanbanBoard.addEventListener("dragover", function (e) {
-    e.preventDefault();
-    const column = e.target.closest(".kanban-column");
-    if (column) {
-      column.style.backgroundColor = "rgba(0, 170, 255, 0.1)";
-    }
-  });
+        // Visual feedback
+        setTimeout(() => {
+          e.target.style.opacity = "0.4";
+        }, 0);
 
-  kanbanBoard.addEventListener("dragleave", function (e) {
-    const column = e.target.closest(".kanban-column");
-    if (column) {
-      column.style.backgroundColor = "";
-    }
-  });
-
-  kanbanBoard.addEventListener("drop", function (e) {
-    e.preventDefault();
-    const column = e.target.closest(".kanban-column");
-    if (column && draggedTask) {
-      column.style.backgroundColor = "";
-      const taskContainer = column.querySelector(".kanban-task:not(.empty)");
-      if (taskContainer) {
-        taskContainer.appendChild(draggedTask);
-
-        const newStatus = column.getAttribute("data-column");
-        const taskId = draggedTask.getAttribute("data-task-id");
-
-        if (taskId && newStatus) {
-          updateTaskStatus(taskId, newStatus);
-        }
+        console.log(
+          `🧲 Started dragging task ${e.target.getAttribute("data-task-id")}`,
+        );
       }
-    }
+    },
+    false,
+  );
+
+  // Add dragend event
+  document.addEventListener(
+    "dragend",
+    function (e) {
+      if (draggedTask) {
+        draggedTask.style.opacity = "1";
+        draggedTask = null;
+        draggedTaskOriginalColumn = null;
+      }
+
+      // Reset column backgrounds
+      document.querySelectorAll(".kanban-column").forEach((col) => {
+        col.style.backgroundColor = "";
+      });
+    },
+    false,
+  );
+
+  // Add dragover to columns
+  document.querySelectorAll(".kanban-column").forEach((column) => {
+    column.addEventListener(
+      "dragover",
+      function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        this.style.backgroundColor = "rgba(0, 170, 255, 0.1)";
+      },
+      false,
+    );
+
+    column.addEventListener(
+      "dragleave",
+      function (e) {
+        // Only remove highlight if leaving the column
+        if (!this.contains(e.relatedTarget)) {
+          this.style.backgroundColor = "";
+        }
+      },
+      false,
+    );
+
+    column.addEventListener(
+      "drop",
+      async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        this.style.backgroundColor = "";
+
+        if (!draggedTask) return;
+
+        const taskId = draggedTask.getAttribute("data-task-id");
+        const newStatus = this.getAttribute("data-column");
+        const originalStatus =
+          draggedTaskOriginalColumn?.getAttribute("data-column");
+
+        // Don't do anything if dropped in same column
+        if (originalStatus === newStatus) {
+          console.log("ℹ️ Task dropped in same column");
+          return;
+        }
+
+        console.log(
+          `🔄 Moving task ${taskId} from ${originalStatus} to ${newStatus}`,
+        );
+
+        // Remove from old column
+        draggedTask.remove();
+
+        // Add to new column
+        this.appendChild(draggedTask);
+
+        // Update visual styling
+        draggedTask.classList.remove("complete");
+        if (newStatus === "done") {
+          draggedTask.classList.add("complete");
+        }
+
+        // Update via API
+        try {
+          const response = await fetch("/api/tasks/update-status/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify({
+              task_id: taskId,
+              status: newStatus,
+            }),
+          });
+
+          const result = await response.json();
+
+          if (result.success) {
+            console.log(`✅ Task status updated to ${newStatus}`);
+            showNotification(`Task moved to ${newStatus}`, "success");
+
+            // Refresh dashboard data
+            setTimeout(() => {
+              refreshDashboardData(true);
+            }, 500);
+          } else {
+            console.error("❌ Failed to update task:", result.error);
+
+            // Revert on error
+            if (draggedTaskOriginalColumn) {
+              draggedTaskOriginalColumn.appendChild(draggedTask);
+              draggedTask.classList.toggle(
+                "complete",
+                originalStatus === "done",
+              );
+            }
+
+            showNotification(result.error || "Failed to update task", "error");
+          }
+        } catch (error) {
+          console.error("❌ Network error:", error);
+
+          // Revert on network error
+          if (draggedTaskOriginalColumn) {
+            draggedTaskOriginalColumn.appendChild(draggedTask);
+            draggedTask.classList.toggle("complete", originalStatus === "done");
+          }
+
+          showNotification("Network error updating task", "error");
+        }
+      },
+      false,
+    );
+  });
+
+  console.log("✅ Drag and drop setup complete");
+}
+
+function handleDragStart(e) {
+  if (
+    !e.target.classList.contains("kanban-task") ||
+    e.target.classList.contains("empty") ||
+    e.target.classList.contains("more-tasks")
+  ) {
+    return;
+  }
+
+  e.dataTransfer.setData("text/plain", e.target.dataset.taskId);
+  e.target.classList.add("dragging");
+
+  // Add a delay before setting opacity to avoid visual glitch
+  setTimeout(() => {
+    e.target.style.opacity = "0.4";
+  }, 0);
+}
+
+function handleDragEnd(e) {
+  const draggingElement = document.querySelector(".kanban-task.dragging");
+  if (draggingElement) {
+    draggingElement.classList.remove("dragging");
+    draggingElement.style.opacity = "1";
+  }
+}
+
+// Helper function to determine where to insert the dragged task
+function getDragAfterElement(container, y) {
+  const draggableElements = [
+    ...container.querySelectorAll(
+      ".kanban-task:not(.empty):not(.more-tasks):not(.dragging)",
+    ),
+  ];
+
+  return draggableElements.reduce(
+    (closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    },
+    { offset: Number.NEGATIVE_INFINITY },
+  ).element;
+}
+
+// Add this debug function
+function debugDragAndDrop() {
+  const kanbanBoard = document.getElementById("kanbanBoard");
+  if (!kanbanBoard) {
+    console.log("❌ No Kanban board found");
+    return;
+  }
+
+  console.log("🔍 Debug drag and drop setup:");
+
+  // Check if tasks are draggable
+  const tasks = kanbanBoard.querySelectorAll(".kanban-task");
+  console.log(`Found ${tasks.length} tasks`);
+
+  tasks.forEach((task, index) => {
+    console.log(`Task ${index}:`, {
+      id: task.getAttribute("data-task-id"),
+      draggable: task.getAttribute("draggable"),
+      hasClickHandler: !!task.onclick,
+      classList: task.className,
+    });
+  });
+
+  // Check event listeners
+  console.log("Event listeners:", {
+    hasDragStart: !!kanbanBoard.ondragstart,
+    hasDragEnd: !!kanbanBoard.ondragend,
+    hasDragOver: !!kanbanBoard.ondragover,
+    hasDrop: !!kanbanBoard.ondrop,
+  });
+}
+
+function debugTaskTimestamps() {
+  console.log("🕒 Debug task timestamps:");
+
+  if (AppState.cachedData && AppState.cachedData.tasks) {
+    // Check all tasks
+    ["todo", "inprogress", "review", "done"].forEach((status) => {
+      const tasks = AppState.cachedData.tasks[status] || [];
+      console.log(`${status} tasks (${tasks.length}):`);
+
+      tasks.forEach((task, index) => {
+        console.log(`  ${index + 1}. "${task.title}"`, {
+          id: task.id,
+          created_at: task.created_at,
+          updated_at: task.updated_at,
+          assigned_to_name: task.assigned_to_name,
+          status: task.status,
+        });
+      });
+    });
+  }
+}
+
+function debugTimezone() {
+  console.log("🌍 Timezone debug:", {
+    currentTime: new Date().toISOString(),
+    localTime: new Date().toString(),
+    timezoneOffset: new Date().getTimezoneOffset() + " minutes",
+    timezoneOffsetHours: new Date().getTimezoneOffset() / 60 + " hours",
+    isDST:
+      new Date().getTimezoneOffset() <
+      Math.max(
+        new Date(2024, 0, 1).getTimezoneOffset(),
+        new Date(2024, 6, 1).getTimezoneOffset(),
+      ),
+  });
+
+  // Test with your Django time
+  const djangoTime = "2026-01-20 03:46:34";
+  const asUTC = new Date(djangoTime.replace(" ", "T") + "Z");
+  const asLocal = new Date(djangoTime.replace(" ", "T"));
+
+  console.log("🧪 Django time test:", {
+    djangoTime: djangoTime,
+    asUTC: asUTC.toISOString(),
+    asLocal: asLocal.toISOString(),
+    asUTCDisplay: asUTC.toString(),
+    asLocalDisplay: asLocal.toString(),
+    difference: (asLocal - asUTC) / (1000 * 60 * 60) + " hours",
   });
 }
 
@@ -3540,15 +5174,15 @@ async function openTaskDetails(taskId, taskTitle) {
     if (!response.ok) {
       throw new Error(`Failed to fetch task: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (!data.success) {
-      throw new Error(data.error || 'Failed to load task details');
+      throw new Error(data.error || "Failed to load task details");
     }
-    
+
     const task = data.task;
-    
+
     const mainContent = document.getElementById("mainContent");
     if (!mainContent) return;
 
@@ -3562,7 +5196,11 @@ async function openTaskDetails(taskId, taskTitle) {
     AppState.currentPage = "task-details";
     updateSidebarActive("");
     localStorage.setItem("swyfttask-page", `task-${taskId}`);
-    history.pushState({ page: "task-details", taskId: taskId }, "", `#task-${taskId}`);
+    history.pushState(
+      { page: "task-details", taskId: taskId },
+      "",
+      `#task-${taskId}`,
+    );
 
     stopAutoRefresh();
   } catch (error) {
@@ -3576,46 +5214,46 @@ async function openTaskDetails(taskId, taskTitle) {
 
 function createTaskDetailsHTML(task) {
   // Format due date display
-  let dueDateDisplay = 'No deadline';
-  let dueDateClass = '';
-  let timeLeft = '';
-  
+  let dueDateDisplay = "No deadline";
+  let dueDateClass = "";
+  let timeLeft = "";
+
   if (task.due_date) {
     const dueDate = new Date(task.due_date);
     const today = new Date();
     const diffTime = dueDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    dueDateDisplay = dueDate.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+
+    dueDateDisplay = dueDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
-    
+
     if (diffDays === 0) {
-      timeLeft = 'Due Today';
-      dueDateClass = 'urgent';
+      timeLeft = "Due Today";
+      dueDateClass = "urgent";
     } else if (diffDays < 0) {
-      timeLeft = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} overdue`;
-      dueDateClass = 'critical';
+      timeLeft = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""} overdue`;
+      dueDateClass = "critical";
     } else {
-      timeLeft = `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
-      dueDateClass = diffDays <= 3 ? 'urgent' : '';
+      timeLeft = `in ${diffDays} day${diffDays !== 1 ? "s" : ""}`;
+      dueDateClass = diffDays <= 3 ? "urgent" : "";
     }
   }
-  
+
   // Format priority badge
   const priorityClasses = {
-    'urgent': 'critical',
-    'high': 'urgent',
-    'medium': 'warning',
-    'low': ''
+    urgent: "critical",
+    high: "urgent",
+    medium: "warning",
+    low: "",
   };
-  
-  const priorityClass = priorityClasses[task.priority] || '';
-  
+
+  const priorityClass = priorityClasses[task.priority] || "";
+
   // Format assignee info
-  let assigneeHTML = '';
+  let assigneeHTML = "";
   if (task.assigned_to) {
     assigneeHTML = `
       <div class="assignees-section">
@@ -3629,7 +5267,7 @@ function createTaskDetailsHTML(task) {
       </div>
     `;
   }
-  
+
   // Format project link
   const projectLink = `
     <div class="project-link">
@@ -3639,7 +5277,7 @@ function createTaskDetailsHTML(task) {
       </a>
     </div>
   `;
-  
+
   return `
     <div class="task-details-page">
       <div class="task-header-bar">
@@ -3648,7 +5286,7 @@ function createTaskDetailsHTML(task) {
         </button>
         <div class="task-title-wrapper">
           <h1 contenteditable="true" id="taskTitle" class="task-title">${task.title}</h1>
-          <span class="task-id muted">#TASK-${task.id}</span>
+          <!-- <span class="task-id muted">#TASK-${task.id}</span> -->
         </div>
         <div class="task-actions">
           <button class="icon-btn" onclick="toggleTaskStar(${task.id})" title="Star">
@@ -3664,20 +5302,24 @@ function createTaskDetailsHTML(task) {
         <div class="task-left">
           <div class="task-meta-bar">
             <select id="taskStatus" class="status-select ${task.status}">
-              <option value="todo" ${task.status === 'todo' ? 'selected' : ''}>To Do</option>
-              <option value="inprogress" ${task.status === 'inprogress' ? 'selected' : ''}>In Progress</option>
-              <option value="review" ${task.status === 'review' ? 'selected' : ''}>Review</option>
-              <option value="done" ${task.status === 'done' ? 'selected' : ''}>Done</option>
+              <option value="todo" ${task.status === "todo" ? "selected" : ""}>To Do</option>
+              <option value="inprogress" ${task.status === "inprogress" ? "selected" : ""}>In Progress</option>
+              <option value="review" ${task.status === "review" ? "selected" : ""}>Review</option>
+              <option value="done" ${task.status === "done" ? "selected" : ""}>Done</option>
             </select>
             <div class="priority-badge ${priorityClass}">
               ${task.priority_display || task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
             </div>
-            ${task.due_date ? `
+            ${
+              task.due_date
+                ? `
               <div class="due-date ${dueDateClass}">
                 <i class="fa fa-clock"></i>
                 <span>Due ${dueDateDisplay} · <strong>${timeLeft}</strong></span>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
 
           ${assigneeHTML}
@@ -3688,7 +5330,7 @@ function createTaskDetailsHTML(task) {
             <h3>Description</h3>
             <div class="rich-text" contenteditable="true" id="taskDescription" 
                  placeholder="Add a detailed description...">
-              ${task.description || 'No description provided. Click to add one.'}
+              ${task.description || "No description provided. Click to add one."}
             </div>
           </section>
 
@@ -3715,7 +5357,7 @@ function createTaskDetailsHTML(task) {
 
             <div class="comment-box">
               <div class="avatar">
-                ${window.djangoData?.user?.firstName?.charAt(0) || 'U'}
+                ${window.djangoData?.user?.firstName?.charAt(0) || "U"}
               </div>
               <textarea id="commentInput" placeholder="Write a comment..."></textarea>
               <button class="send-comment" onclick="addComment(${task.id})">
@@ -3730,15 +5372,15 @@ function createTaskDetailsHTML(task) {
             <h4>Details</h4>
             <div class="date-field">
               <label>Due Date</label>
-              <input type="date" id="taskDueDate" value="${task.due_date || ''}">
+              <input type="date" id="taskDueDate" value="${task.due_date || ""}">
             </div>
             <div class="date-field">
               <label>Priority</label>
               <select id="taskPriority" class="priority-select">
-                <option value="low" ${task.priority === 'low' ? 'selected' : ''}>Low</option>
-                <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>Medium</option>
-                <option value="high" ${task.priority === 'high' ? 'selected' : ''}>High</option>
-                <option value="urgent" ${task.priority === 'urgent' ? 'selected' : ''}>Urgent</option>
+                <option value="low" ${task.priority === "low" ? "selected" : ""}>Low</option>
+                <option value="medium" ${task.priority === "medium" ? "selected" : ""}>Medium</option>
+                <option value="high" ${task.priority === "high" ? "selected" : ""}>High</option>
+                <option value="urgent" ${task.priority === "urgent" ? "selected" : ""}>Urgent</option>
               </select>
             </div>
             <div class="date-field">
@@ -3791,7 +5433,7 @@ function setupTaskDetailsPage(task) {
   // Status update
   const statusSelect = document.getElementById("taskStatus");
   if (statusSelect) {
-    statusSelect.addEventListener("change", function() {
+    statusSelect.addEventListener("change", function () {
       updateTaskStatus(task.id, this.value);
     });
   }
@@ -3799,32 +5441,32 @@ function setupTaskDetailsPage(task) {
   // Title update
   const taskTitle = document.getElementById("taskTitle");
   if (taskTitle) {
-    taskTitle.addEventListener("blur", function() {
-      saveTaskField(task.id, 'title', this.textContent);
+    taskTitle.addEventListener("blur", function () {
+      saveTaskField(task.id, "title", this.textContent);
     });
   }
 
   // Description update
   const description = document.getElementById("taskDescription");
   if (description) {
-    description.addEventListener("blur", function() {
-      saveTaskField(task.id, 'description', this.textContent);
+    description.addEventListener("blur", function () {
+      saveTaskField(task.id, "description", this.textContent);
     });
   }
 
   // Due date update
   const dueDateInput = document.getElementById("taskDueDate");
   if (dueDateInput) {
-    dueDateInput.addEventListener("change", function() {
-      saveTaskField(task.id, 'due_date', this.value);
+    dueDateInput.addEventListener("change", function () {
+      saveTaskField(task.id, "due_date", this.value);
     });
   }
 
   // Priority update
   const prioritySelect = document.getElementById("taskPriority");
   if (prioritySelect) {
-    prioritySelect.addEventListener("change", function() {
-      saveTaskField(task.id, 'priority', this.value);
+    prioritySelect.addEventListener("change", function () {
+      saveTaskField(task.id, "priority", this.value);
     });
   }
 
@@ -3833,9 +5475,9 @@ function setupTaskDetailsPage(task) {
   if (assigneeSelect) {
     // Load project members
     loadProjectMembers(task.project.id, assigneeSelect, task.assigned_to?.id);
-    
-    assigneeSelect.addEventListener("change", function() {
-      saveTaskField(task.id, 'assigned_to', this.value || null);
+
+    assigneeSelect.addEventListener("change", function () {
+      saveTaskField(task.id, "assigned_to", this.value || null);
     });
   }
 
@@ -3845,7 +5487,7 @@ function setupTaskDetailsPage(task) {
   // Comment input
   const commentInput = document.getElementById("commentInput");
   if (commentInput) {
-    commentInput.addEventListener("keypress", function(e) {
+    commentInput.addEventListener("keypress", function (e) {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         addComment(task.id);
@@ -3863,26 +5505,24 @@ async function saveTaskField(taskId, field, value) {
         "X-CSRFToken": getCSRFToken(),
       },
       body: JSON.stringify({
-        [field]: value
+        [field]: value,
       }),
     });
 
     const result = await response.json();
-    
+
     if (result.success) {
-      showNotification(`${field.replace('_', ' ')} updated`, "success");
-      
+      showNotification(`${field.replace("_", " ")} updated`, "success");
+
+      // Refresh dashboard data immediately
+      await refreshDashboardData(true);
+
       // Update UI if needed
-      if (field === 'status') {
+      if (field === "status") {
         const statusElement = document.querySelector(".status-select");
         if (statusElement) {
           statusElement.className = `status-select ${value}`;
         }
-      }
-      
-      // Refresh dashboard if we're on it
-      if (AppState.currentPage === "dashboard") {
-        refreshDashboardData();
       }
     } else {
       showNotification(result.error || `Failed to update ${field}`, "error");
@@ -3897,26 +5537,26 @@ async function loadProjectMembers(projectId, selectElement, selectedUserId) {
   try {
     const response = await fetch(`/api/projects/${projectId}/members/`);
     const data = await response.json();
-    
+
     if (data.success) {
       // Clear existing options except first one
       while (selectElement.options.length > 1) {
         selectElement.remove(1);
       }
-      
+
       // Add current user first
-      const currentUserOption = document.createElement('option');
+      const currentUserOption = document.createElement("option");
       currentUserOption.value = window.djangoData?.user?.id || "";
       currentUserOption.textContent = `${window.djangoData?.user?.firstName || "You"} (You)`;
       if (selectedUserId === window.djangoData?.user?.id) {
         currentUserOption.selected = true;
       }
       selectElement.appendChild(currentUserOption);
-      
+
       // Add other members
-      data.members.forEach(member => {
+      data.members.forEach((member) => {
         if (member.id !== window.djangoData?.user?.id) {
-          const option = document.createElement('option');
+          const option = document.createElement("option");
           option.value = member.id;
           option.textContent = member.full_name || member.username;
           if (member.id === selectedUserId) {
@@ -3935,24 +5575,26 @@ async function loadComments(taskId) {
   try {
     const response = await fetch(`/api/tasks/${taskId}/comments/`);
     const data = await response.json();
-    
+
     if (data.success) {
       const commentStream = document.getElementById("commentStream");
       if (!commentStream) return;
-      
+
       // Clear existing comments (keep the system activity items)
-      const systemItems = commentStream.querySelectorAll('.activity-item.system');
-      commentStream.innerHTML = '';
-      
+      const systemItems = commentStream.querySelectorAll(
+        ".activity-item.system",
+      );
+      commentStream.innerHTML = "";
+
       // Add back system items
-      systemItems.forEach(item => {
+      systemItems.forEach((item) => {
         commentStream.appendChild(item);
       });
-      
+
       // Add comments
-      data.comments.forEach(comment => {
-        const commentElement = document.createElement('div');
-        commentElement.className = 'activity-item comment';
+      data.comments.forEach((comment) => {
+        const commentElement = document.createElement("div");
+        commentElement.className = "activity-item comment";
         commentElement.innerHTML = `
           <div class="avatar" title="${comment.user.full_name}">
             ${comment.user.initial}
@@ -3962,7 +5604,7 @@ async function loadComments(taskId) {
             <p>${comment.content}</p>
             <div class="comment-actions">
               <span class="muted">${formatTimeAgo(comment.created_at)}</span>
-              ${comment.is_editable ? '· <a href="#" onclick="editComment(${comment.id})">Edit</a>' : ''}
+              ${comment.is_editable ? '· <a href="#" onclick="editComment(${comment.id})">Edit</a>' : ""}
             </div>
           </div>
         `;
@@ -3977,7 +5619,7 @@ async function loadComments(taskId) {
 async function addComment(taskId) {
   const commentInput = document.getElementById("commentInput");
   if (!commentInput || !commentInput.value.trim()) return;
-  
+
   try {
     const response = await fetch(`/api/tasks/${taskId}/comments/add/`, {
       method: "POST",
@@ -3986,21 +5628,21 @@ async function addComment(taskId) {
         "X-CSRFToken": getCSRFToken(),
       },
       body: JSON.stringify({
-        content: commentInput.value.trim()
+        content: commentInput.value.trim(),
       }),
     });
 
     const data = await response.json();
-    
+
     if (data.success) {
       // Clear input
       commentInput.value = "";
-      
+
       // Add comment to UI
       const commentStream = document.getElementById("commentStream");
       if (commentStream) {
-        const commentElement = document.createElement('div');
-        commentElement.className = 'activity-item comment';
+        const commentElement = document.createElement("div");
+        commentElement.className = "activity-item comment";
         commentElement.innerHTML = `
           <div class="avatar" title="${data.comment.user.full_name}">
             ${data.comment.user.initial}
@@ -4015,7 +5657,7 @@ async function addComment(taskId) {
         `;
         commentStream.appendChild(commentElement);
       }
-      
+
       showNotification("Comment added", "success");
     } else {
       showNotification(data.error || "Failed to add comment", "error");
@@ -4028,98 +5670,174 @@ async function addComment(taskId) {
 
 // Utility functions
 function formatTimeAgo(dateString) {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-  
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric' 
-  });
+  if (!dateString) return "just now";
+
+  console.log("🕒 formatTimeAgo input:", dateString);
+
+  try {
+    const date = convertDjangoTimeSimple(dateString);
+
+    if (!date) {
+      console.error("❌ Could not convert date:", dateString);
+      return "recently";
+    }
+
+    const now = new Date();
+    const diffMs = now - date;
+
+    // Debug: Check if time appears correct
+    console.log("🕒 Time calculation:", {
+      input: dateString,
+      dateUTC: date.toISOString(),
+      dateLocal: date.toLocaleString("en-US", { timeZoneName: "short" }),
+      nowUTC: now.toISOString(),
+      nowLocal: now.toLocaleString("en-US", { timeZoneName: "short" }),
+      diffMs: diffMs,
+      diffHours: Math.floor(diffMs / (1000 * 60 * 60)),
+      expectedCorrect:
+        diffMs > 0 ? "✅ Should be positive" : "❌ Negative (in future)",
+    });
+
+    return calculateTimeAgo(diffMs);
+  } catch (error) {
+    console.error("❌ Error in formatTimeAgo:", error);
+    return "recently";
+  }
+}
+
+function calculateTimeAgo(diffMs) {
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffSeconds < 0) {
+    return "in the future";
+  } else if (diffSeconds < 60) {
+    return "just now";
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  } else if (diffDays < 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+  } else {
+    const date = new Date(Date.now() - diffMs);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+}
+
+function convertDjangoTimeSimple(djangoTime) {
+  if (!djangoTime) return null;
+
+  console.log("🔄 Converting:", djangoTime);
+
+  try {
+    // Convert Django format to ISO if needed
+    let isoTime = djangoTime;
+
+    if (djangoTime.includes(" ") && !djangoTime.includes("T")) {
+      // Convert "2026-01-20 03:46:34" to "2026-01-20T03:46:34Z"
+      isoTime = djangoTime.replace(" ", "T") + "Z";
+    }
+
+    // Parse the ISO time
+    const date = new Date(isoTime);
+
+    if (isNaN(date.getTime())) {
+      console.error("❌ Invalid date:", isoTime);
+      return null;
+    }
+
+    console.log("✅ Converted successfully:", {
+      input: djangoTime,
+      iso: isoTime,
+      output: date.toISOString(),
+      local: date.toLocaleString("en-US", { timeZoneName: "short" }),
+    });
+
+    return date;
+  } catch (error) {
+    console.error("❌ Conversion error:", error);
+    return null;
+  }
 }
 
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'long', 
-    day: 'numeric', 
-    year: 'numeric' 
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   });
+}
+
+// Helper function to format due date
+function formatDueDate(dateString) {
+  if (!dateString) return "";
+
+  const date = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffTime = date.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Due today";
+  if (diffDays < 0) return "Overdue";
+  if (diffDays === 1) return "Due tomorrow";
+  if (diffDays <= 7) return `Due in ${diffDays} days`;
+
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // Fix the "Add Task" button issue
 function addTaskToProject(projectId) {
   console.log(`Add task to project ${projectId}`);
   showNewTaskForm();
-  
+
   // Pre-select the project in the task form
   setTimeout(() => {
     const projectSelect = document.getElementById("taskProject");
-    const customProjectDropdown = document.getElementById("customProjectDropdown");
+    const customProjectDropdown = document.getElementById(
+      "customProjectDropdown",
+    );
     const selectedText = document.getElementById("selectedProjectText");
-    
+
     if (projectSelect && projectId) {
       // Set the value on the hidden select
       projectSelect.value = projectId;
-      
+
       // Update the custom dropdown display
       if (customProjectDropdown && selectedText) {
         // Find the project name from options
-        const option = Array.from(projectSelect.options).find(opt => opt.value == projectId);
+        const option = Array.from(projectSelect.options).find(
+          (opt) => opt.value == projectId,
+        );
         if (option) {
           selectedText.textContent = option.textContent;
-          
+
           // Highlight in dropdown
-          document.querySelectorAll('.dropdown-option').forEach(opt => {
-            opt.classList.remove('selected');
-            if (opt.getAttribute('data-value') == projectId) {
-              opt.classList.add('selected');
+          document.querySelectorAll(".dropdown-option").forEach((opt) => {
+            opt.classList.remove("selected");
+            if (opt.getAttribute("data-value") == projectId) {
+              opt.classList.add("selected");
             }
           });
         }
       }
-      
+
       // Trigger change to load assignees
-      projectSelect.dispatchEvent(new Event('change'));
+      projectSelect.dispatchEvent(new Event("change"));
     }
   }, 500);
-}
-
-// Add to your existing project details HTML template to fix the button
-function createProjectDetailsHTML(data, projectId) {
-  return `
-    <div class="simple-project-details">
-      <div class="project-header">
-        <button class="qa-btn back-btn" onclick="restoreDashboard()">
-          <i class="fa fa-arrow-left"></i> Back to Dashboard
-        </button>
-        <div class="project-title-section">
-          <h1>${data.project.name}</h1>
-          <div class="project-meta">
-            <span>Owned by ${data.project.owner.name}</span>
-            <span>• Created ${new Date(data.project.created_at).toLocaleDateString()}</span>
-          </div>
-        </div>
-        <div class="project-actions">
-          <button class="icon-btn" onclick="editProject(${projectId})" title="Edit Project">
-            <i class="fa fa-edit"></i>
-          </button>
-          <button class="icon-btn" onclick="window.addTaskToProject(${projectId})" title="Add Task">
-            <i class="fa fa-plus"></i>
-          </button>
-        </div>
-      </div>
-      <!-- ... rest of the HTML ... -->
-    </div>
-  `;
 }
 
 // Make sure to export the function globally
@@ -4128,7 +5846,7 @@ window.addTaskToProject = addTaskToProject;
 function setupSearchFunctionality() {
   const desktopSearchToggle = document.getElementById("desktopSearchToggle");
   const desktopSearchContainer = document.getElementById(
-    "desktopSearchContainer"
+    "desktopSearchContainer",
   );
   const desktopSearchInput = document.getElementById("desktopSearchInput");
   const mobileSearchInput = document.getElementById("mobileSearchInput");
@@ -4186,7 +5904,7 @@ function performSearch(query) {
 
 function toggleDesktopSearch() {
   const desktopSearchContainer = document.getElementById(
-    "desktopSearchContainer"
+    "desktopSearchContainer",
   );
   if (desktopSearchContainer) {
     desktopSearchContainer.classList.toggle("active");
@@ -4236,7 +5954,7 @@ function setupRealTimeValidation() {
 
       try {
         const response = await fetch(
-          `/api/projects/check-duplicate/?name=${encodeURIComponent(name)}`
+          `/api/projects/check-duplicate/?name=${encodeURIComponent(name)}`,
         );
         const result = await response.json();
 
@@ -4246,7 +5964,7 @@ function setupRealTimeValidation() {
           showValidationFeedback(
             this,
             "error",
-            `You already have "${result.project_name}"`
+            `You already have "${result.project_name}"`,
           );
         } else {
           this.classList.remove("validating");
@@ -4263,7 +5981,7 @@ function setupRealTimeValidation() {
 
 function showValidationFeedback(inputElement, type, message) {
   const feedbackDiv = inputElement.parentNode.querySelector(
-    ".validation-feedback"
+    ".validation-feedback",
   );
   if (feedbackDiv) {
     feedbackDiv.remove();
@@ -4322,6 +6040,103 @@ window.inviteToProject = inviteToProject;
 window.archiveProject = archiveProject;
 window.openTaskDetails = openTaskDetails;
 window.toggleSidebar = toggleSidebar;
+window.debugDragAndDrop = debugDragAndDrop;
+window.debugTaskTimestamps = debugTaskTimestamps;
+window.debugTimezone = debugTimezone;
 
 console.log("🎯 SwyftTask Dashboard with Task Details loaded successfully");
 
+// function debugTaskDates() {
+//   console.log("🔍 Debugging task dates...");
+
+//   if (AppState.cachedData && AppState.cachedData.tasks) {
+//     let totalTasks = 0;
+//     let invalidDates = 0;
+
+//     ["todo", "inprogress", "review", "done"].forEach((status) => {
+//       const tasks = AppState.cachedData.tasks[status] || [];
+//       totalTasks += tasks.length;
+
+//       tasks.forEach((task, index) => {
+//         console.log(`Task ${task.id} (${status}):`, {
+//           title: task.title,
+//           created_at: task.created_at,
+//           updated_at: task.updated_at,
+//           hasCreated: !!task.created_at,
+//           hasUpdated: !!task.updated_at,
+//         });
+
+//         // Test conversion
+//         if (task.created_at) {
+//           const converted = convertDjangoTime(task.created_at);
+//           console.log("  Created conversion:", converted ? "✅" : "❌");
+//         }
+
+//         if (task.updated_at) {
+//           const converted = convertDjangoTime(task.updated_at);
+//           console.log("  Updated conversion:", converted ? "✅" : "❌");
+//           if (!converted) invalidDates++;
+//         }
+//       });
+//     });
+
+//     console.log(
+//       `📊 Summary: ${totalTasks} total tasks, ${invalidDates} invalid dates`,
+//     );
+//   }
+// }
+
+// window.debugTaskDates = debugTaskDates;
+
+// function testTimeConversion() {
+//   console.log("🧪 Testing time conversion...");
+
+//   const testCases = [
+//     "2026-01-20 03:46:34", // Django format
+//     "2026-01-16T10:21:24.427912+00:00", // ISO with timezone
+//     "2026-01-20T03:45:53.870832+00:00", // ISO with timezone
+//     "2026-01-20T03:45:53.870832Z", // ISO with Z
+//     "2026-01-20T03:45:53.870832", // ISO without timezone
+//   ];
+
+//   testCases.forEach((testTime) => {
+//     console.log(`\nTest: "${testTime}"`);
+//     const result = convertDjangoTimeSimple(testTime);
+//     if (result) {
+//       console.log("✅ Success:", {
+//         iso: result.toISOString(),
+//         local: result.toLocaleString("en-US", { timeZoneName: "short" }),
+//         diffFromNow: new Date() - result,
+//         hoursAgo: Math.floor((new Date() - result) / (1000 * 60 * 60)),
+//       });
+//     } else {
+//       console.log("❌ Failed");
+//     }
+//   });
+// }
+
+// window.testTimeConversion = testTimeConversion;
+
+// async function debugProjectAPI(projectId) {
+//   console.log(`🔍 Debugging project API for ID: ${projectId}`);
+
+//   try {
+//     const response = await fetch(`/api/projects/${projectId}/`);
+//     const text = await response.text();
+
+//     console.log("📡 Response status:", response.status);
+//     console.log("📡 Content-Type:", response.headers.get("content-type"));
+//     console.log("📡 Raw response (first 500 chars):", text.substring(0, 500));
+
+//     try {
+//       const data = JSON.parse(text);
+//       console.log("📊 Parsed JSON:", JSON.stringify(data, null, 2));
+//     } catch (e) {
+//       console.error("❌ Failed to parse JSON:", e);
+//     }
+//   } catch (error) {
+//     console.error("❌ Network error:", error);
+//   }
+// }
+
+// window.debugProjectAPI = debugProjectAPI;

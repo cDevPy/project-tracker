@@ -25,6 +25,7 @@ from django.contrib import messages
 from django.db.models import Q
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+import pytz
 
 # home/views.py - Update the dashboard view function
 @login_required
@@ -73,7 +74,7 @@ def dashboard(request):
     tasks_due_today = all_tasks.filter(
         due_date=today,
         status__in=['todo', 'inprogress', 'review']
-    )[:5]
+    )
     
     # Categorize tasks for Kanban board
     todo_tasks = all_tasks.filter(status='todo')[:5]
@@ -151,8 +152,33 @@ def dashboard(request):
     
     # Get total project count for the "View All" button - USE len()
     total_projects_count = len(projects)  # Changed from projects.count()
+
+    # Get current time in user's timezone (or default)
+    user_timezone = pytz.timezone('UTC')  # Default to UTC
+    
+    # If you store user timezone in profile:
+    # if request.user.profile.timezone:
+    #     user_timezone = pytz.timezone(request.user.profile.timezone)
+    
+    now = timezone.now().astimezone(user_timezone)
+    hour = now.hour
+    
+    # Determine greeting
+    if 5 <= hour < 12:
+        greeting = "Good morning"
+    elif 12 <= hour < 17:
+        greeting = "Good afternoon"
+    elif 17 <= hour < 21:
+        greeting = "Good evening"
+    elif 21 <= hour < 24:
+        greeting = "Good night"
+    else:
+        greeting = "Good night"  # For midnight to 5 AM
     
     context = {
+        'default_greeting': 'Hello',
+        'greeting': greeting,
+        'current_time': now,
         # Basic counts
         'active_projects_count': active_projects_count,
         'tasks_due_count': tasks_due_count,
@@ -268,14 +294,28 @@ def create_task_api(request):
             except ValueError:
                 return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
         
+        # Set default values if not provided
+        status = data.get('status', 'todo')  # Default to 'todo' if not provided
+        priority = data.get('priority', 'medium')  # Default to 'medium' if not provided
+        
+        # Validate status and priority
+        valid_statuses = ['todo', 'inprogress', 'review', 'done']
+        valid_priorities = ['low', 'medium', 'high', 'urgent']
+        
+        if status not in valid_statuses:
+            status = 'todo'  # Fallback to default
+        
+        if priority not in valid_priorities:
+            priority = 'medium'  # Fallback to default
+        
         # Create task
         task = Task(
             title=data['title'],
             description=data.get('description', ''),
             project=project,
             assigned_to=assigned_to,
-            status=data.get('status', 'todo'),
-            priority=data.get('priority', 'medium'),
+            status=status,
+            priority=priority,
             due_date=due_date
         )
         
@@ -398,6 +438,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 import json
 
+# home/views.py - Fix the project_details function
+
 @require_GET  # Only allow GET requests
 @login_required
 def project_details(request, project_id):
@@ -414,53 +456,7 @@ def project_details(request, project_id):
         # Get all tasks for this project
         tasks = Task.objects.filter(project=project)
 
-        # PROPERLY categorize tasks by status
-        # First, get all possible status values from the database
-        all_statuses = tasks.values_list('status', flat=True).distinct()
-        print(f"🔍 Found status values in DB: {list(all_statuses)}")
-        
-        # Map status values to our categories
-        def get_tasks_by_status(status_list):
-            return tasks.filter(status__in=status_list)
-        
-        # Define status mappings
-        status_mapping = {
-            'todo': ['todo'],#, 'Todo', 'To Do', 'TO_DO'],
-            'inprogress': ['inprogress'],#, 'In Progress', 'in_progress', 'pending', 'Pending'],
-            'review': ['review'],#, 'Review'],
-            'done': ['done'],#, 'Done', 'Completed', 'completed']
-        }
-        
-        # Get tasks for each category
-        tasks_by_status = {}
-        for category, status_values in status_mapping.items():
-            category_tasks = tasks.filter(status__in=status_values)
-            tasks_by_status[category] = [format_task_for_kanban(task) for task in category_tasks]
-            print(f"📊 {category}: {category_tasks.count()} tasks")
-        
-        # Calculate statistics
-        total_tasks = tasks.count()
-        completed_tasks = tasks_by_status['done'].count()
-        # For overdue, we need to check tasks that are not done
-        overdue_tasks = 0
-        for category in ['todo', 'inprogress', 'review']:
-            for task in tasks_by_status[category]:
-                if task['due_date']:
-                    due_date = datetime.strptime(task['due_date'], '%Y-%m-%d').date()
-                    if due_date < timezone.now().date():
-                        overdue_tasks += 1
-
-        # print(f"📊 Stats - Total: {total_tasks}, Completed: {completed_tasks}, Overdue: {overdue_tasks}")
-        
-        progress = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
-        
-        # Get team members
-        team_members = project.members.all()
-        
-        # Get recent activity (last 10 tasks created/updated)
-        recent_activity = tasks.order_by('-updated_at')[:10]
-        
-        # Prepare task data for kanban
+        # Define the format function first
         def format_task_for_kanban(task):
             return {
                 'id': task.id,
@@ -480,23 +476,53 @@ def project_details(request, project_id):
                 'updated_at': task.updated_at.strftime('%Y-%m-%d %H:%M'),
             }
         
-        def get_inprogress_tasks(tasks):
-            # Try different possible status values
-            return tasks.filter(
-                status__in=['inprogress', 'pending', 'in_progress']
-            )
-
-        tasks_by_status = {
-            'todo': [format_task_for_kanban(task) for task in tasks.filter(status='todo')],
-            'inprogress': [format_task_for_kanban(task) for task in get_inprogress_tasks(tasks)],
-            'review': [format_task_for_kanban(task) for task in tasks.filter(status='review')],
-            'done': [format_task_for_kanban(task) for task in tasks.filter(status='done')],
+        # Define status mappings
+        status_mapping = {
+            'todo': ['todo'],
+            'inprogress': ['inprogress'],
+            'review': ['review'],
+            'done': ['done'],
         }
+        
+        # Get tasks for each category
+        tasks_by_status = {}
+        for category, status_values in status_mapping.items():
+            category_tasks = tasks.filter(status__in=status_values)
+            tasks_by_status[category] = [format_task_for_kanban(task) for task in category_tasks]
+            print(f"📊 {category}: {category_tasks.count()} tasks")
+        
+        # Calculate statistics - FIXED: Use len() for lists
+        total_tasks = tasks.count()
+        completed_tasks = len(tasks_by_status['done'])  # FIXED: Use len() instead of .count()
+        
+        # For overdue, we need to check tasks that are not done
+        overdue_tasks = 0
+        for category in ['todo', 'inprogress', 'review']:
+            for task in tasks_by_status[category]:
+                if task['due_date']:
+                    try:
+                        due_date = datetime.strptime(task['due_date'], '%Y-%m-%d').date()
+                        if due_date < timezone.now().date():
+                            overdue_tasks += 1
+                    except (ValueError, TypeError):
+                        continue
+
+        print(f"📊 Stats - Total: {total_tasks}, Completed: {completed_tasks}, Overdue: {overdue_tasks}")
+        
+        progress = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
+        
+        # Get team members
+        team_members = project.members.all()
+        
+        # Get recent activity (last 10 tasks created/updated)
+        recent_activity = tasks.order_by('-updated_at')[:10]
         
         # Prepare team data
         team_data = []
         for member in team_members:
             member_tasks = tasks.filter(assigned_to=member)
+            # FIXED: Use filter with __in for status values
+            completed_member_tasks = member_tasks.filter(status__in=status_mapping['done']).count()
             team_data.append({
                 'id': member.id,
                 'name': member.get_full_name() or member.username,
@@ -504,7 +530,7 @@ def project_details(request, project_id):
                 'email': member.email,
                 'initial': member.first_name[0].upper() if member.first_name else member.username[0].upper(),
                 'task_count': member_tasks.count(),
-                'completed_tasks': member_tasks.filter(status_in=status_mapping['done']).count(),
+                'completed_tasks': completed_member_tasks,
                 'is_owner': member.id == project.owner.id,
             })
         
@@ -551,6 +577,8 @@ def project_details(request, project_id):
         
     except Exception as e:
         print(f"❌ Error in project_details view: {str(e)}")
+        import traceback
+        traceback.print_exc()  # This will show the full traceback
         return JsonResponse({
             'success': False,
             'error': f'Server error: {str(e)}'
@@ -731,47 +759,50 @@ from tasks.models import Task
 from django.contrib.auth.models import User
 import json
 
+# home/views.py - Optimize dashboard_full_data
+
+@require_GET
+@login_required
+# home/views.py - Ensure API returns all needed data
+
 @require_GET
 @login_required
 def dashboard_full_data(request):
     """Get complete dashboard data for auto-refresh"""
     try:
-        # Get ALL user's projects first
-        all_user_projects = Project.objects.filter(
+        # Get user's projects
+        user_projects = Project.objects.filter(
             Q(owner=request.user) | Q(members=request.user)
         ).distinct()
         
-        # Get all tasks for ALL user projects
-        all_tasks = Task.objects.filter(project__in=all_user_projects)
+        # Get pinned projects (first 4)
+        pinned_projects = user_projects[:4]
         
-        # Now get only 4 projects for pinned section
-        pinned_projects = all_user_projects[:4]
+        # Get all tasks for user's projects
+        all_tasks = Task.objects.filter(project__in=user_projects)
         
-        # Calculate counts based on ALL projects, not just pinned
-        total_projects_count = all_user_projects.count()
-        active_projects_count = all_user_projects.count()
-        tasks_due_count = all_tasks.exclude(status='done').count()
-        overdue_count = all_tasks.filter(
-            due_date__lt=timezone.now().date(),
-            status__in=['todo', 'inprogress', 'review']
-        ).count()
-        team_count = User.objects.filter(
-            Q(project_owner__in=all_user_projects) | Q(project_member__in=all_user_projects)
-        ).distinct().count()
+        # Calculate counts
+        counts = {
+            'active_projects': user_projects.count(),
+            'tasks_due': all_tasks.exclude(status='done').count(),
+            'overdue': all_tasks.filter(
+                due_date__lt=timezone.now().date(),
+                status__in=['todo', 'inprogress', 'review']
+            ).count(),
+            'team_count': User.objects.filter(
+                Q(project_owner__in=user_projects) | Q(project_member__in=user_projects)
+            ).distinct().count()
+        }
         
-        # Get today's date
-        today = timezone.now().date()
-        
-        # Prepare projects data for pinned section (only 4 projects)
+        # Format projects with stats
         projects_data = []
         for project in pinned_projects:
-            total_tasks = Task.objects.filter(project=project).count()
-            completed_tasks = Task.objects.filter(project=project, status='done').count()
-            
+            project_tasks = Task.objects.filter(project=project)
+            total_tasks = project_tasks.count()
+            completed_tasks = project_tasks.filter(status='done').count()
+            progress = 0
             if total_tasks > 0:
-                progress = int((completed_tasks / total_tasks) * 100)
-            else:
-                progress = 0
+                progress = int((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
             
             # Add CSS class based on progress
             css_class = ''
@@ -785,46 +816,66 @@ def dashboard_full_data(request):
                 'name': project.name,
                 'progress': progress,
                 'task_count': total_tasks,
-                'css_class': css_class,
-                'description': project.description or '',
-                'created_at': project.created_at.strftime('%Y-%m-%d')
+                'css_class': css_class
             })
         
-        # Prepare task data
+        # Format tasks for different sections
         def format_task(task):
-            return {
+            task_data = {
                 'id': task.id,
                 'title': task.title,
                 'status': task.status,
-                'project_id': task.project.id,
-                'project_name': task.project.name,
+                'priority': task.priority,
                 'assigned_to': task.assigned_to.id if task.assigned_to else None,
                 'assigned_to_name': task.assigned_to.get_full_name() if task.assigned_to else None,
-                'due_date': task.due_date.strftime('%Y-%m-%d') if task.due_date else None,
-                'priority': task.priority,
+                'due_date': task.due_date.isoformat() if task.due_date else None,
+                'created_at': task.created_at.isoformat(),
+                'updated_at': task.updated_at.isoformat(),
+                'project_id': task.project.id,
+                'project_name': task.project.name,
             }
+
+            # Add assigned_to information
+            if task.assigned_to:
+                task_data['assigned_to'] = task.assigned_to.id
+                task_data['assigned_to_name'] = task.assigned_to.get_full_name() or task.assigned_to.username
+                
+            # Add created_by information
+            task_data['created_by'] = {
+                'id': task.project.owner.id,
+                'username': task.project.owner.username,
+                'full_name': task.project.owner.get_full_name() or task.project.owner.username
+            }
+                
+            return task_data
         
-        # Get tasks for different sections (from ALL tasks)
-        todo_tasks = [format_task(task) for task in all_tasks.filter(status='todo')[:5]]
-        inprogress_tasks = [format_task(task) for task in all_tasks.filter(status='inprogress')[:5]]
-        review_tasks = [format_task(task) for task in all_tasks.filter(status='review')[:5]]
-        done_tasks = [format_task(task) for task in all_tasks.filter(status='done')[:5]]
+        # Get tasks by status
+        todo_tasks = [format_task(t) for t in all_tasks.filter(status='todo')]
+        inprogress_tasks = [format_task(t) for t in all_tasks.filter(status='inprogress')]
+        review_tasks = [format_task(t) for t in all_tasks.filter(status='review')]
+        done_tasks = [format_task(t) for t in all_tasks.filter(status='done')]
         
         return JsonResponse({
             'success': True,
             'counts': {
-                'active_projects': active_projects_count,
-                'tasks_due': tasks_due_count,
-                'overdue': overdue_count,
-                'team_count': team_count
+                'active_projects': user_projects.count(),
+                'tasks_due': all_tasks.exclude(status='done').count(),
+                'overdue': all_tasks.filter(
+                    due_date__lt=timezone.now().date(),
+                    status__in=['todo', 'inprogress', 'review']
+                ).count(),
+                'team_count': User.objects.filter(
+                    Q(project_owner__in=user_projects) | Q(project_member__in=user_projects)
+                ).distinct().count()
             },
-            'projects': projects_data,  # Only 4 projects for pinned section
-            'total_projects': total_projects_count,  # Total count of ALL projects
+            'projects': projects_data,
+            'total_projects': user_projects.count(),
             'tasks': {
                 'todo': todo_tasks,
                 'inprogress': inprogress_tasks,
                 'review': review_tasks,
-                'done': done_tasks
+                'done': done_tasks,
+                'all': todo_tasks + inprogress_tasks + review_tasks + done_tasks
             }
         })
         
@@ -836,6 +887,112 @@ def dashboard_full_data(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+# @require_GET
+# @login_required
+# def dashboard_full_data(request):
+#     """Get complete dashboard data for auto-refresh"""
+#     try:
+#         # Get ALL user's projects first
+#         all_user_projects = Project.objects.filter(
+#             Q(owner=request.user) | Q(members=request.user)
+#         ).distinct()
+        
+#         # Get all tasks for ALL user projects
+#         all_tasks = Task.objects.filter(project__in=all_user_projects)
+        
+#         # Now get only 4 projects for pinned section
+#         pinned_projects = all_user_projects[:4]
+        
+#         # Calculate counts based on ALL projects, not just pinned
+#         total_projects_count = all_user_projects.count()
+#         active_projects_count = all_user_projects.count()
+#         tasks_due_count = all_tasks.exclude(status='done').count()
+#         overdue_count = all_tasks.filter(
+#             due_date__lt=timezone.now().date(),
+#             status__in=['todo', 'inprogress', 'review']
+#         ).count()
+#         team_count = User.objects.filter(
+#             Q(project_owner__in=all_user_projects) | Q(project_member__in=all_user_projects)
+#         ).distinct().count()
+        
+#         # Get today's date
+#         today = timezone.now().date()
+        
+#         # Prepare projects data for pinned section (only 4 projects)
+#         projects_data = []
+#         for project in pinned_projects:
+#             total_tasks = Task.objects.filter(project=project).count()
+#             completed_tasks = Task.objects.filter(project=project, status='done').count()
+            
+#             if total_tasks > 0:
+#                 progress = int((completed_tasks / total_tasks) * 100)
+#             else:
+#                 progress = 0
+            
+#             # Add CSS class based on progress
+#             css_class = ''
+#             if progress < 50:
+#                 css_class = 'urgent'
+#             elif progress < 90:
+#                 css_class = 'warning'
+            
+#             projects_data.append({
+#                 'id': project.id,
+#                 'name': project.name,
+#                 'progress': progress,
+#                 'task_count': total_tasks,
+#                 'css_class': css_class,
+#                 'description': project.description or '',
+#                 'created_at': project.created_at.strftime('%Y-%m-%d')
+#             })
+        
+#         # Prepare task data
+#         def format_task(task):
+#             return {
+#                 'id': task.id,
+#                 'title': task.title,
+#                 'status': task.status,
+#                 'project_id': task.project.id,
+#                 'project_name': task.project.name,
+#                 'assigned_to': task.assigned_to.id if task.assigned_to else None,
+#                 'assigned_to_name': task.assigned_to.get_full_name() if task.assigned_to else None,
+#                 'due_date': task.due_date.strftime('%Y-%m-%d') if task.due_date else None,
+#                 'priority': task.priority,
+#             }
+        
+#         # Get tasks for different sections (from ALL tasks)
+#         todo_tasks = [format_task(task) for task in all_tasks.filter(status='todo')[:5]]
+#         inprogress_tasks = [format_task(task) for task in all_tasks.filter(status='inprogress')[:5]]
+#         review_tasks = [format_task(task) for task in all_tasks.filter(status='review')[:5]]
+#         done_tasks = [format_task(task) for task in all_tasks.filter(status='done')[:5]]
+        
+#         return JsonResponse({
+#             'success': True,
+#             'counts': {
+#                 'active_projects': active_projects_count,
+#                 'tasks_due': tasks_due_count,
+#                 'overdue': overdue_count,
+#                 'team_count': team_count
+#             },
+#             'projects': projects_data,  # Only 4 projects for pinned section
+#             'total_projects': total_projects_count,  # Total count of ALL projects
+#             'tasks': {
+#                 'todo': todo_tasks,
+#                 'inprogress': inprogress_tasks,
+#                 'review': review_tasks,
+#                 'done': done_tasks
+#             }
+#         })
+        
+#     except Exception as e:
+#         print(f"❌ Error in dashboard_full_data: {str(e)}")
+#         import traceback
+#         traceback.print_exc()
+#         return JsonResponse({
+#             'success': False,
+#             'error': str(e)
+#         }, status=500)
 
 # home/views.py - Add this view
 from django.db.models import Count
