@@ -1527,3 +1527,106 @@ def debug_tasks(request, project_id=None):
         output.append(f"Task {task.id}: '{task.title}' - Status: '{task.status}' - Display: '{task.get_status_display()}'")
     
     return HttpResponse("<br>".join(output))
+
+# Add to home/views.py
+
+@require_GET
+@login_required
+def search_all(request):
+    """Search across tasks, projects, and users"""
+    query = request.GET.get('q', '').strip()
+    
+    if not query or len(query) < 2:
+        return JsonResponse({
+            'success': True,
+            'results': [],
+            'query': query
+        })
+    
+    try:
+        # Get user's accessible projects
+        user_projects = Project.objects.filter(
+            Q(owner=request.user) | Q(members=request.user)
+        ).distinct()
+        
+        # Search tasks
+        tasks = Task.objects.filter(
+            Q(project__in=user_projects),
+            Q(title__icontains=query) | Q(description__icontains=query)
+        ).select_related('project', 'assigned_to')[:10]
+        
+        # Search projects
+        projects = user_projects.filter(
+            Q(name__icontains=query) | Q(description__icontains=query)
+        )[:10]
+        
+        # Search team members (users in the same projects)
+        team_members = User.objects.filter(
+            Q(project_owner__in=user_projects) | Q(project_member__in=user_projects),
+            Q(username__icontains=query) | 
+            Q(first_name__icontains=query) | 
+            Q(last_name__icontains=query) | 
+            Q(email__icontains=query)
+        ).distinct()[:10]
+        
+        # Format results
+        task_results = []
+        for task in tasks:
+            task_results.append({
+                'type': 'task',
+                'id': task.id,
+                'title': task.title,
+                'description': task.description[:100] + '...' if task.description and len(task.description) > 100 else task.description,
+                'project': {
+                    'id': task.project.id,
+                    'name': task.project.name
+                },
+                'status': task.status,
+                'assigned_to': task.assigned_to.username if task.assigned_to else None,
+                'icon': 'fas fa-tasks'
+            })
+        
+        project_results = []
+        for project in projects:
+            project_results.append({
+                'type': 'project',
+                'id': project.id,
+                'title': project.name,
+                'description': project.description[:100] + '...' if project.description and len(project.description) > 100 else project.description,
+                'owner': project.owner.username,
+                'task_count': project.task_set.count(),
+                'icon': 'fas fa-briefcase'
+            })
+        
+        user_results = []
+        for user in team_members:
+            user_results.append({
+                'type': 'user',
+                'id': user.id,
+                'title': user.get_full_name() or user.username,
+                'description': user.email or f'Team member',
+                'username': user.username,
+                'icon': 'fas fa-user'
+            })
+        
+        # Combine and sort by relevance
+        all_results = task_results + project_results + user_results
+        
+        return JsonResponse({
+            'success': True,
+            'results': all_results,
+            'counts': {
+                'tasks': len(task_results),
+                'projects': len(project_results),
+                'users': len(user_results),
+                'total': len(all_results)
+            },
+            'query': query
+        })
+        
+    except Exception as e:
+        print(f"❌ Search error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

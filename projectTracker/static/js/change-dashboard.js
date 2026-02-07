@@ -1,4 +1,23 @@
 // =============================================
+// CONFIGURATION
+// =============================================
+
+const CONFIG = {
+  API_BASE: '/api',
+  REFRESH_INTERVAL: 10000, // 10 seconds
+  USER_ACTIVITY_THRESHOLD: 30000, // 30 seconds
+  DEBOUNCE_DELAY: 300, // Search debounce
+  FORM_SUBMIT_DELAY: 1500, // Delay after form submit
+  MIN_REFRESH_INTERVAL: 2000, // Minimum time between refreshes
+  SEARCH_MIN_LENGTH: 2,
+  NOTIFICATION_DURATION: 5000, // 5 seconds
+  BREAKPOINTS: {
+    MOBILE: 768,
+    TABLET: 1024
+  }
+};
+
+// =============================================
 // SWYFTTASK DASHBOARD - COMPLETE AUTO-REFRESH VERSION
 // =============================================
 
@@ -10,23 +29,75 @@ let lastRefreshTime = 0;
 const MIN_REFRESH_INTERVAL = 2000; // 2 seconds minimum between refreshes
 
 // Global state
-const AppState = {
-  originalDashboardHTML: null,
-  currentPage: "dashboard",
-  cachedData: {
-    counts: {},
-    tasks: {},
-    projects: [],
-    total_projects: 0,
-  },
-  needsRefresh: {
-    dashboard: false,
-    projects: false,
-  },
-  autoRefreshInterval: null,
-  currentProjectId: null,
-  currentTaskId: null,
-};
+// =============================================
+// STATE MANAGEMENT
+// =============================================
+
+class AppStateManager {
+  constructor() {
+    this.state = {
+      originalDashboardHTML: null,
+      currentPage: "dashboard",
+      cachedData: {
+        counts: {},
+        tasks: {},
+        projects: [],
+        total_projects: 0,
+      },
+      needsRefresh: {
+        dashboard: false,
+        projects: false,
+      },
+      autoRefreshInterval: null,
+      currentProjectId: null,
+      currentTaskId: null,
+    };
+    this.listeners = [];
+  }
+
+  getState() {
+    return { ...this.state };
+  }
+
+  updateState(updates) {
+    const oldState = { ...this.state };
+    this.state = { ...this.state, ...updates };
+    
+    // Notify listeners of changes
+    this.listeners.forEach(listener => {
+      listener(this.state, oldState);
+    });
+  }
+
+  subscribe(listener) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  reset() {
+    this.state = {
+      originalDashboardHTML: null,
+      currentPage: "dashboard",
+      cachedData: {
+        counts: {},
+        tasks: {},
+        projects: [],
+        total_projects: 0,
+      },
+      needsRefresh: {
+        dashboard: false,
+        projects: false,
+      },
+      autoRefreshInterval: null,
+      currentProjectId: null,
+      currentTaskId: null,
+    };
+  }
+}
+
+const AppState = new AppStateManager();
 
 // Add this function to your dashboard.js
 function updateGreeting() {
@@ -74,49 +145,173 @@ function setupGreeting() {
   setInterval(updateGreeting, 60000);
 }
 
-// Global helper for managing the current project (used by modals like editProject)
-window.setCurrentProject = function(project) {
-  if (project && typeof project === 'object') {
-    window.currentProject = project;
-    console.log(`✅ Set current project: ${project.name} (ID: ${project.id})`);
-  } else {
-    console.warn('⚠️ Invalid project data provided to setCurrentProject');
-  }
-};
+// =============================================
+// MAIN INITIALIZATION
+// =============================================
 
-window.getCurrentProject = function() {
-  return window.currentProject || null;
-};
-
-window.clearCurrentProject = function() {
-  window.currentProject = null;
-  console.log('🧹 Cleared current project');
-};
-
-// Main initialization
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener('DOMContentLoaded', function() {
   console.log("🚀 SwyftTask Dashboard Initializing...");
 
-  // Save original dashboard HTML
-  const originalContent = document.getElementById("originalDashboardContent");
-  if (originalContent) {
-    AppState.originalDashboardHTML = originalContent.innerHTML;
-    console.log("💾 Saved original dashboard HTML");
+  // Initialize systems
+  setupEventListeners();
+  setupSidebar();
+  setupFormHandlers();
+  setupTaskDragAndDrop()
+  setupSearchFunctionality();
+  setupGreeting();
+
+  // Start auto-refresh on dashboard
+  if (AppState.getState().currentPage === "dashboard") {
+    autoRefresh.start();
   }
 
-  // Initialize all functionality
-  setupAllFunctionality();
-
-  setupActionTracking();
-
-  // Call this in your initialization
-  setupGlobalEventListeners();
-
-  // Check URL hash for page restoration
+  // Handle URL hash
   handleURLHash();
 
   console.log("✅ Dashboard initialized successfully");
 });
+
+// =============================================
+// EVENT MANAGER
+// =============================================
+
+class EventManager {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  add(element, event, handler, options = {}) {
+    if (!element) {
+      console.warn("⚠️ EventManager: Element not found for event:", event);
+      return;
+    }
+    
+    console.log(`➕ Adding ${event} listener to`, element);
+    element.addEventListener(event, handler, options);
+    
+    const key = this.getKey(element, event, handler);
+    if (!this.listeners.has(key)) {
+      this.listeners.set(key, []);
+    }
+    this.listeners.get(key).push({ element, event, handler, options });
+  }
+
+  remove(element, event, handler) {
+    if (!element) return;
+    
+    element.removeEventListener(event, handler);
+    
+    const key = this.getKey(element, event, handler);
+    const listeners = this.listeners.get(key) || [];
+    const index = listeners.findIndex(l => l.handler === handler);
+    if (index > -1) {
+      listeners.splice(index, 1);
+    }
+    if (listeners.length === 0) {
+      this.listeners.delete(key);
+    }
+  }
+
+  removeAll(element) {
+    if (!element) return;
+    
+    this.listeners.forEach((listeners, key) => {
+      listeners.forEach(({ element: el, event, handler }) => {
+        if (el === element) {
+          el.removeEventListener(event, handler);
+        }
+      });
+    });
+    
+    // Remove from map
+    [...this.listeners.keys()].forEach(key => {
+      if (key.startsWith(element.toString())) {
+        this.listeners.delete(key);
+      }
+    });
+  }
+
+  cleanup() {
+    this.listeners.forEach((listeners) => {
+      listeners.forEach(({ element, event, handler }) => {
+        element.removeEventListener(event, handler);
+      });
+    });
+    this.listeners.clear();
+  }
+
+  getKey(element, event, handler) {
+    return `${element.toString()}-${event}-${handler.toString()}`;
+  }
+}
+
+// class EventManager {
+//   constructor() {
+//     this.listeners = new Map();
+//   }
+
+//   add(element, event, handler, options = {}) {
+//     if (!element) return;
+    
+//     element.addEventListener(event, handler, options);
+    
+//     const key = this.getKey(element, event, handler);
+//     if (!this.listeners.has(key)) {
+//       this.listeners.set(key, []);
+//     }
+//     this.listeners.get(key).push({ element, event, handler, options });
+//   }
+
+//   remove(element, event, handler) {
+//     if (!element) return;
+    
+//     element.removeEventListener(event, handler);
+    
+//     const key = this.getKey(element, event, handler);
+//     const listeners = this.listeners.get(key) || [];
+//     const index = listeners.findIndex(l => l.handler === handler);
+//     if (index > -1) {
+//       listeners.splice(index, 1);
+//     }
+//     if (listeners.length === 0) {
+//       this.listeners.delete(key);
+//     }
+//   }
+
+//   removeAll(element) {
+//     if (!element) return;
+    
+//     this.listeners.forEach((listeners, key) => {
+//       listeners.forEach(({ element: el, event, handler }) => {
+//         if (el === element) {
+//           el.removeEventListener(event, handler);
+//         }
+//       });
+//     });
+    
+//     // Remove from map
+//     [...this.listeners.keys()].forEach(key => {
+//       if (key.startsWith(element.toString())) {
+//         this.listeners.delete(key);
+//       }
+//     });
+//   }
+
+//   cleanup() {
+//     this.listeners.forEach((listeners) => {
+//       listeners.forEach(({ element, event, handler }) => {
+//         element.removeEventListener(event, handler);
+//       });
+//     });
+//     this.listeners.clear();
+//   }
+
+//   getKey(element, event, handler) {
+//     return `${element.toString()}-${event}-${handler.toString()}`;
+//   }
+// }
+
+const eventManager = new EventManager();
 
 // Add this to your dashboard.js initialization
 function setupGlobalEventListeners() {
@@ -319,83 +514,75 @@ function setupEventListeners() {
 
   // Hamburger menu
   const hamburgerBtn = document.getElementById("hamburgerBtn");
+  console.log("🍔 Hamburger button found:", !!hamburgerBtn);
   if (hamburgerBtn) {
-    hamburgerBtn.addEventListener("click", toggleSidebar);
+    eventManager.add(hamburgerBtn, 'click', function() {
+      console.log("🍔 Hamburger clicked!");
+      toggleSidebar();
+    });
   }
 
   // Home button
   const homeBtn = document.getElementById("homeBtn");
+  console.log("🏠 Home button found:", !!homeBtn);
   if (homeBtn) {
-    homeBtn.addEventListener("click", restoreDashboard);
+    eventManager.add(homeBtn, 'click', function() {
+      console.log("🏠 Home clicked!");
+      restoreDashboard();
+    });
   }
 
   // Quick action buttons
   const newProjectBtn = document.getElementById("newProjectBtn");
+  console.log("📁 New project button found:", !!newProjectBtn);
   if (newProjectBtn) {
-    newProjectBtn.addEventListener("click", showNewProjectForm);
+    eventManager.add(newProjectBtn, 'click', function() {
+      console.log("📁 New project clicked!");
+      showNewProjectForm();
+    });
   }
 
   const newTaskBtn = document.getElementById("newTaskBtn");
+  console.log("📝 New task button found:", !!newTaskBtn);
   if (newTaskBtn) {
-    newTaskBtn.addEventListener("click", showNewTaskForm);
-  }
-
-  const inviteBtn = document.getElementById("inviteBtn");
-  if (inviteBtn) {
-    inviteBtn.addEventListener("click", showInviteForm);
-  }
-
-  // Desktop create button
-  const createBtn = document.getElementById("createBtn");
-  if (createBtn) {
-    createBtn.addEventListener("click", showNewTaskForm);
-  }
-
-  // Mobile create button
-  // const mobileCreateBtn = document.getElementById("newTaskBtnMobile");
-  // if (mobileCreateBtn) {
-  //   mobileCreateBtn.addEventListener("click", showNewTaskForm);
-  // }
-
-  // Desktop search toggle
-  const desktopSearchToggle = document.getElementById("desktopSearchToggle");
-  if (desktopSearchToggle) {
-    desktopSearchToggle.addEventListener("click", toggleDesktopSearch);
+    eventManager.add(newTaskBtn, 'click', function() {
+      console.log("📝 New task clicked!");
+      showNewTaskForm();
+    });
   }
 
   // Account menu
   const accountBtn = document.getElementById("accountBtn");
   const accountMenu = document.getElementById("accountMenu");
+  console.log("👤 Account elements found:", { accountBtn: !!accountBtn, accountMenu: !!accountMenu });
   if (accountBtn && accountMenu) {
-    accountBtn.addEventListener("click", function (e) {
+    eventManager.add(accountBtn, 'click', function(e) {
+      console.log("👤 Account menu clicked!");
       e.stopPropagation();
       accountMenu.classList.toggle("show");
     });
 
     // Close menu when clicking outside
-    document.addEventListener("click", function (e) {
+    eventManager.add(document, 'click', function(e) {
       if (!accountBtn.contains(e.target) && !accountMenu.contains(e.target)) {
         accountMenu.classList.remove("show");
       }
     });
-
-    // Setup account menu items
-    setupAccountMenu();
   }
 
   // Project click handlers (event delegation)
-  document.addEventListener("click", function (e) {
+  console.log("🎯 Setting up project click handlers...");
+  eventManager.add(document, 'click', function(e) {
+    console.log("🖱️ Document click detected");
+    
     // Pinned project cards
     const projectCard = e.target.closest(".pinned-project");
     if (projectCard && !projectCard.classList.contains("view-all-projects")) {
+      console.log("📁 Pinned project clicked:", projectCard.getAttribute("data-project-id"));
       e.preventDefault();
       e.stopPropagation();
 
-      if (
-        projectCard
-          .querySelector("h4")
-          ?.textContent.includes("Create First Project")
-      ) {
+      if (projectCard.querySelector("h4")?.textContent.includes("Create First Project")) {
         showNewProjectForm();
         return;
       }
@@ -403,11 +590,8 @@ function setupEventListeners() {
       const projectId = projectCard.getAttribute("data-project-id");
       const projectName = projectCard.querySelector("h4").textContent.trim();
 
-      if (!projectId || projectId === "null" || projectId === "undefined") {
-        showNotification(
-          "This project cannot be opened. Please try another.",
-          "error",
-        );
+      if (!projectId || projectId === "null" || projectId === "") {
+        showNotification("This project cannot be opened. Please try another.", "error");
         return;
       }
 
@@ -417,6 +601,7 @@ function setupEventListeners() {
 
     // View All Projects
     if (e.target.closest(".view-all-projects")) {
+      console.log("📂 View all projects clicked");
       e.preventDefault();
       e.stopPropagation();
       showAllProjects();
@@ -424,10 +609,8 @@ function setupEventListeners() {
     }
 
     // Project menu button
-    if (
-      e.target.closest(".project-menu-btn") ||
-      e.target.classList.contains("fa-ellipsis-v")
-    ) {
+    if (e.target.closest(".project-menu-btn") || e.target.classList.contains("fa-ellipsis-v")) {
+      console.log("⚙️ Project menu clicked");
       e.preventDefault();
       e.stopPropagation();
       const projectCard = e.target.closest(".pinned-project");
@@ -441,26 +624,159 @@ function setupEventListeners() {
     }
 
     // Task click handlers
-    const taskElement = e.target.closest(
-      ".kanban-task, .due-list li, .assigned-tasks li, .task-card",
-    );
+    const taskElement = e.target.closest(".kanban-task, .due-list li, .assigned-tasks li, .task-card");
     if (taskElement) {
+      console.log("📋 Task clicked:", taskElement.getAttribute("data-task-id"));
       const taskId = taskElement.getAttribute("data-task-id");
       if (taskId) {
-        const taskTitle =
-          taskElement.querySelector("span")?.textContent || "Task";
+        const taskTitle = taskElement.querySelector("span")?.textContent || "Task";
         openTaskDetails(taskId, taskTitle);
       }
     }
   });
 
   // Handle browser back/forward
-  window.addEventListener("popstate", function (event) {
+  eventManager.add(window, 'popstate', function(event) {
+    console.log("🔄 Popstate event");
     handleURLHash();
   });
 
   console.log("✅ Event listeners setup complete");
 }
+
+// function setupEventListeners() {
+//   console.log("🔧 Setting up event listeners...");
+
+//   // Hamburger menu
+//   const hamburgerBtn = document.getElementById("hamburgerBtn");
+//   eventManager.add(hamburgerBtn, 'click', toggleSidebar);
+
+//   // Home button
+//   const homeBtn = document.getElementById("homeBtn");
+//   eventManager.add(homeBtn, 'click', restoreDashboard);
+
+//   // Quick action buttons
+//   const newProjectBtn = document.getElementById("newProjectBtn");
+//   eventManager.add(newProjectBtn, 'click', showNewProjectForm);
+
+//   const newTaskBtn = document.getElementById("newTaskBtn");
+//   eventManager.add(newTaskBtn, 'click', showNewTaskForm);
+
+//   const inviteBtn = document.getElementById("inviteBtn");
+//   eventManager.add(inviteBtn, 'click', showInviteForm);
+
+//   // Desktop create button
+//   const createBtn = document.getElementById("createBtn");
+//   eventManager.add(createBtn, 'click', showNewTaskForm);
+
+//   // Mobile create button
+//   // const mobileCreateBtn = document.getElementById("newTaskBtnMobile");
+//   // if (mobileCreateBtn) {
+//   //   mobileCreateBtn.addEventListener("click", showNewTaskForm);
+//   // }
+
+//   // Desktop search toggle
+//   const desktopSearchToggle = document.getElementById("desktopSearchToggle");
+//   eventManager.add(desktopSearchToggle, 'click', toggleDesktopSearch);
+
+//   // Account menu
+//   const accountBtn = document.getElementById("accountBtn");
+//   const accountMenu = document.getElementById("accountMenu");
+//   if (accountBtn && accountMenu) {
+//     accountBtn.addEventListener("click", function (e) {
+//       e.stopPropagation();
+//       accountMenu.classList.toggle("show");
+//     });
+
+//     // Close menu when clicking outside
+//     document.addEventListener("click", function (e) {
+//       if (!accountBtn.contains(e.target) && !accountMenu.contains(e.target)) {
+//         accountMenu.classList.remove("show");
+//       }
+//     });
+
+//     // Setup account menu items
+//     setupAccountMenu();
+//   }
+
+//   // Project click handlers (event delegation)
+//   document.addEventListener("click", function (e) {
+//     // Pinned project cards
+//     const projectCard = e.target.closest(".pinned-project");
+//     if (projectCard && !projectCard.classList.contains("view-all-projects")) {
+//       e.preventDefault();
+//       e.stopPropagation();
+
+//       if (
+//         projectCard
+//           .querySelector("h4")
+//           ?.textContent.includes("Create First Project")
+//       ) {
+//         showNewProjectForm();
+//         return;
+//       }
+
+//       const projectId = projectCard.getAttribute("data-project-id");
+//       const projectName = projectCard.querySelector("h4").textContent.trim();
+
+//       if (!projectId || projectId === "null" || projectId === "undefined") {
+//         showNotification(
+//           "This project cannot be opened. Please try another.",
+//           "error",
+//         );
+//         return;
+//       }
+
+//       openProjectDetails(projectId, projectName);
+//       return;
+//     }
+
+//     // View All Projects
+//     if (e.target.closest(".view-all-projects")) {
+//       e.preventDefault();
+//       e.stopPropagation();
+//       showAllProjects();
+//       return;
+//     }
+
+//     // Project menu button
+//     if (
+//       e.target.closest(".project-menu-btn") ||
+//       e.target.classList.contains("fa-ellipsis-v")
+//     ) {
+//       e.preventDefault();
+//       e.stopPropagation();
+//       const projectCard = e.target.closest(".pinned-project");
+//       if (projectCard) {
+//         const projectId = projectCard.getAttribute("data-project-id");
+//         if (projectId && projectId !== "null" && projectId !== "undefined") {
+//           showProjectContextMenu(e, projectId);
+//         }
+//       }
+//       return;
+//     }
+
+//     // Task click handlers
+//     const taskElement = e.target.closest(
+//       ".kanban-task, .due-list li, .assigned-tasks li, .task-card",
+//     );
+//     if (taskElement) {
+//       const taskId = taskElement.getAttribute("data-task-id");
+//       if (taskId) {
+//         const taskTitle =
+//           taskElement.querySelector("span")?.textContent || "Task";
+//         openTaskDetails(taskId, taskTitle);
+//       }
+//     }
+//   });
+
+//   // Handle browser back/forward
+//   window.addEventListener("popstate", function (event) {
+//     handleURLHash();
+//   });
+
+//   console.log("✅ Event listeners setup complete");
+// }
 
 function setupAccountMenu() {
   const accountMenu = document.getElementById("accountMenu");
@@ -507,6 +823,106 @@ function setupAccountMenu() {
 // =============================================
 // AUTO-REFRESH SYSTEM
 // =============================================
+
+class AutoRefreshManager {
+  constructor() {
+    this.intervalId = null;
+    this.isRefreshing = false;
+    this.lastRefreshTime = 0;
+    this.userActivityTime = Date.now();
+  }
+
+  start() {
+    if (this.intervalId) {
+      this.stop();
+    }
+
+    this.intervalId = setInterval(() => {
+      if (AppState.getState().currentPage === "dashboard") {
+        const timeSinceActivity = Date.now() - this.userActivityTime;
+        if (timeSinceActivity < CONFIG.USER_ACTIVITY_THRESHOLD) {
+          this.refreshDashboard();
+        }
+      }
+    }, CONFIG.REFRESH_INTERVAL);
+
+    // Track user activity
+    this.setupActivityTracking();
+    
+    console.log("🔄 Auto-refresh started");
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+      console.log("⏹️ Auto-refresh stopped");
+    }
+  }
+
+  async refreshDashboard() {
+    if (this.isRefreshing) return;
+    
+    const now = Date.now();
+    if (now - this.lastRefreshTime < CONFIG.MIN_REFRESH_INTERVAL) return;
+
+    this.isRefreshing = true;
+    this.lastRefreshTime = now;
+
+    try {
+      const data = await api.getDashboardData();
+      
+      if (data.success) {
+        AppState.updateState({
+          cachedData: {
+            counts: data.counts || {},
+            tasks: data.tasks || {},
+            projects: data.projects || [],
+            total_projects: data.total_projects || (data.projects ? data.projects.length : 0),
+          }
+        });
+        
+        updateDashboardUI();
+        notifications.show("Dashboard updated", "success");
+      } else {
+        throw new Error(data.error || "Failed to refresh dashboard");
+      }
+    } catch (error) {
+      console.error("❌ Refresh error:", error);
+      notifications.show("Failed to refresh dashboard", "error");
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  setupActivityTracking() {
+    const events = ['mousemove', 'click', 'keypress', 'scroll', 'touchstart'];
+    
+    const updateActivity = () => {
+      this.userActivityTime = Date.now();
+    };
+
+    events.forEach(event => {
+      eventManager.add(document, event, updateActivity, { passive: true });
+    });
+  }
+
+  // Handle visibility change
+  handleVisibilityChange() {
+    if (document.hidden) {
+      this.stop();
+    } else {
+      this.start();
+    }
+  }
+}
+
+const autoRefresh = new AutoRefreshManager();
+
+// Setup visibility change listener
+eventManager.add(document, 'visibilitychange', () => {
+  autoRefresh.handleVisibilityChange();
+});
 
 function startAutoRefresh() {
   if (AppState.autoRefreshInterval) {
@@ -698,7 +1114,6 @@ function updateCompleteDashboardUI(data) {
   updateTeamOnline();
 
   console.log("✅ Complete dashboard UI updated");
-  setupSearchFunctionality();
 }
 
 function updateDashboardCounts(counts) {
@@ -1255,14 +1670,10 @@ function updateKanbanBoard(tasks) {
 
 function updateYourTasks(tasks) {
   const yourTasksContainer = document.querySelector(".assigned-tasks ul");
-  if (!yourTasksContainer) {
-    console.error('❌ Assigned tasks <ul> not found!');
-    return
-  };
+  if (!yourTasksContainer) return;
 
   console.log("👤 Updating Your Tasks...");
 
-  // Clear existing list
   yourTasksContainer.innerHTML = "";
 
   // Get current user ID
@@ -1291,41 +1702,6 @@ function updateYourTasks(tasks) {
     }
     return isAssignedToUser;
   });
-
-  // Render each task
-  yourTasks.forEach(task => {
-    console.log('📝 Rendering task:', task.title);  // Debug: Confirm each task is processed
-    const li = document.createElement('li');
-    li.setAttribute('data-task-id', task.id);
-    
-    // Build the inner HTML (match your Django template)
-    li.innerHTML = `
-      <span class="task-title">${task.title}</span>
-      <small class="muted">
-        ${task.due_date ? 
-          (task.due_date === today ? 'due today' : 
-          task.due_date < today ? 'overdue' : 
-          `in ${timeUntil(task.due_date, today)}`) : 
-          'no deadline'}
-      </small>
-    `;
-    
-    yourTasksContainer.appendChild(li);
-  });
-
-  // If no tasks, add the empty message
-  if (yourTasks.length === 0) {
-    const li = document.createElement('li');
-    li.innerHTML = '<span class="task-title">No tasks assigned</span>';
-    yourTasksContainer.appendChild(li);
-  }
-
-  // Update the badge (already working)
-  const badge = document.querySelector('.assigned-tasks .inbox-badge');
-  if (badge) {
-    badge.textContent = yourTasks.length;
-    badge.style.display = yourTasks.length > 0 ? 'inline' : 'none';
-  }
 
   console.log(`👤 Found ${yourTasks.length} active tasks assigned to you`);
 
@@ -1359,15 +1735,29 @@ function updateYourTasks(tasks) {
         today.setHours(0, 0, 0, 0);
 
         const diffTime = dueDate.getTime() - today.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         if (diffDays === 0) {
-
-        taskItem.innerHTML = `
-          <span class="task-title">${task.title}</span>
-          <small class="${dueClass}">${dueText}</small>
-        `;
+          dueText = "due today";
+          dueClass = "urgent";
+        } else if (diffDays < 0) {
+          dueText = "overdue";
+          dueClass = "critical";
+        } else if (diffDays === 1) {
+          dueText = "due tomorrow";
+          dueClass = "warning";
+        } else if (diffDays <= 7) {
+          dueText = `in ${diffDays} days`;
+          dueClass = "warning";
+        } else {
+          dueText = `${diffDays} days left`;
+        }
       }
+
+      taskItem.innerHTML = `
+        <span class="task-title">${task.title}</span>
+        <small class="${dueClass}">${dueText}</small>
+      `;
 
       // Add click event
       taskItem.addEventListener("click", () => {
@@ -1375,7 +1765,7 @@ function updateYourTasks(tasks) {
       });
 
       yourTasksContainer.appendChild(taskItem);
-    }});
+    });
 
     // Show "more tasks" indicator if there are more than 5
     if (yourTasks.length > 5) {
@@ -1383,7 +1773,7 @@ function updateYourTasks(tasks) {
       moreItem.className = "more-tasks";
       moreItem.innerHTML = `
         <span class="task-title muted">+${yourTasks.length - 5} more tasks</span>
-        <button class="small-btn btn-link" onclick="showAllYourTasks()">Show all</button>
+        <button class="small-btn" onclick="showAllYourTasks()">Show all</button>
       `;
       yourTasksContainer.appendChild(moreItem);
     }
@@ -1703,6 +2093,134 @@ function updateTeamOnline() {
 // =============================================
 // FORM HANDLERS
 // =============================================
+
+class FormManager {
+  constructor() {
+    this.submitting = new Set();
+  }
+
+  async submitTaskForm(form) {
+    const formId = form.id;
+    if (this.submitting.has(formId)) {
+      notifications.show("Form is already being submitted", "warning");
+      return false;
+    }
+
+    this.submitting.add(formId);
+    const submitBtn = form.querySelector('.submit-btn');
+    const originalText = submitBtn?.innerHTML || '';
+
+    try {
+      // Update UI
+      if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        submitBtn.disabled = true;
+      }
+
+      // Collect form data
+      const formData = new FormData(form);
+      const data = {
+        title: formData.get('title'),
+        description: formData.get('description'),
+        project: formData.get('project'),
+        assigned_to: formData.get('assigned_to') || null,
+        status: formData.get('status'),
+        priority: formData.get('priority'),
+        due_date: formData.get('due_date'),
+      };
+
+      // Validate required fields
+      if (!data.title || !data.project) {
+        throw new Error("Title and project are required");
+      }
+
+      const result = await api.createTask(data);
+
+      if (result.success) {
+        notifications.show("Task created successfully!", "success");
+        
+        // Refresh and redirect
+        setTimeout(() => {
+          autoRefresh.refreshDashboard();
+          
+          if (AppState.getState().currentProjectId) {
+            const projectName = document.querySelector('.project-title')?.textContent || '';
+            openProjectDetails(AppState.getState().currentProjectId, projectName);
+          } else {
+            restoreDashboard();
+          }
+        }, CONFIG.FORM_SUBMIT_DELAY);
+      } else {
+        throw new Error(result.error || "Failed to create task");
+      }
+    } catch (error) {
+      console.error("Task creation error:", error);
+      notifications.show(error.message || "Failed to create task", "error");
+    } finally {
+      this.submitting.delete(formId);
+      if (submitBtn) {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+
+    return false;
+  }
+
+  async submitProjectForm(form) {
+    const formId = form.id;
+    if (this.submitting.has(formId)) {
+      notifications.show("Form is already being submitted", "warning");
+      return false;
+    }
+
+    this.submitting.add(formId);
+    const submitBtn = form.querySelector('.submit-btn');
+    const originalText = submitBtn?.innerHTML || '';
+
+    try {
+      if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        submitBtn.disabled = true;
+      }
+
+      const formData = new FormData(form);
+      const data = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        invited_emails: JSON.parse(formData.get('invited_emails') || '[]'),
+      };
+
+      if (!data.name) {
+        throw new Error("Project name is required");
+      }
+
+      const result = await api.createProject(data);
+
+      if (result.success) {
+        notifications.show("Project created successfully!", "success");
+        setTimeout(() => {
+          openProjectDetails(result.project.id, result.project.name);
+        }, CONFIG.FORM_SUBMIT_DELAY);
+      } else {
+        throw new Error(result.error || "Failed to create project");
+      }
+    } catch (error) {
+      console.error("Project creation error:", error);
+      notifications.show(error.message || "Failed to create project", "error");
+    } finally {
+      this.submitting.delete(formId);
+      if (submitBtn) {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
+    }
+
+    return false;
+  }
+}
+
+const formManager = new FormManager();
 
 function setupFormHandlers() {
   // Remove existing listeners to prevent duplicates
@@ -2195,74 +2713,74 @@ function setupProjectDropdown() {
   });
 }
 
-// function setupProjectDropdown() {
-//   const customDropdown = document.getElementById("customProjectDropdown");
-//   const selectElement = document.getElementById("taskProject");
-//   const searchInput = document.getElementById("projectSearch");
-//   const optionsContainer = document.getElementById("projectOptions");
-//   const selectedText = document.getElementById("selectedProjectText");
+function setupProjectDropdown() {
+  const customDropdown = document.getElementById("customProjectDropdown");
+  const selectElement = document.getElementById("taskProject");
+  const searchInput = document.getElementById("projectSearch");
+  const optionsContainer = document.getElementById("projectOptions");
+  const selectedText = document.getElementById("selectedProjectText");
 
-//   if (!customDropdown || !selectElement || !searchInput || !optionsContainer) {
-//     console.log("⚠️ Dropdown elements not found");
-//     return;
-//   }
+  if (!customDropdown || !selectElement || !searchInput || !optionsContainer) {
+    console.log("⚠️ Dropdown elements not found");
+    return;
+  }
 
-//   const options = Array.from(selectElement.options).slice(1);
-//   optionsContainer.innerHTML = "";
+  const options = Array.from(selectElement.options).slice(1);
+  optionsContainer.innerHTML = "";
 
-//   options.forEach((option) => {
-//     const optionDiv = document.createElement("div");
-//     optionDiv.className = "dropdown-option";
-//     optionDiv.textContent = option.textContent;
-//     optionDiv.setAttribute("data-value", option.value);
+  options.forEach((option) => {
+    const optionDiv = document.createElement("div");
+    optionDiv.className = "dropdown-option";
+    optionDiv.textContent = option.textContent;
+    optionDiv.setAttribute("data-value", option.value);
 
-//     optionDiv.onclick = function () {
-//       selectedText.textContent = option.textContent;
-//       selectElement.value = option.value;
-//       selectElement.dispatchEvent(new Event("change"));
-//       customDropdown.classList.remove("open");
+    optionDiv.onclick = function () {
+      selectedText.textContent = option.textContent;
+      selectElement.value = option.value;
+      selectElement.dispatchEvent(new Event("change"));
+      customDropdown.classList.remove("open");
 
-//       document.querySelectorAll(".dropdown-option").forEach((opt) => {
-//         opt.classList.remove("selected");
-//       });
-//       this.classList.add("selected");
+      document.querySelectorAll(".dropdown-option").forEach((opt) => {
+        opt.classList.remove("selected");
+      });
+      this.classList.add("selected");
 
-//       updateAssigneeDropdown(option.value);
-//     };
+      updateAssigneeDropdown(option.value);
+    };
 
-//     optionsContainer.appendChild(optionDiv);
-//   });
+    optionsContainer.appendChild(optionDiv);
+  });
 
-//   customDropdown.querySelector(".dropdown-selected").onclick = function (e) {
-//     e.stopPropagation();
-//     customDropdown.classList.toggle("open");
-//     if (customDropdown.classList.contains("open")) {
-//       searchInput.focus();
-//     }
-//   };
+  customDropdown.querySelector(".dropdown-selected").onclick = function (e) {
+    e.stopPropagation();
+    customDropdown.classList.toggle("open");
+    if (customDropdown.classList.contains("open")) {
+      searchInput.focus();
+    }
+  };
 
-//   searchInput.addEventListener("input", function () {
-//     const searchTerm = this.value.toLowerCase();
-//     const allOptions = optionsContainer.querySelectorAll(".dropdown-option");
+  searchInput.addEventListener("input", function () {
+    const searchTerm = this.value.toLowerCase();
+    const allOptions = optionsContainer.querySelectorAll(".dropdown-option");
 
-//     allOptions.forEach((option) => {
-//       const text = option.textContent.toLowerCase();
-//       option.style.display = text.includes(searchTerm) ? "block" : "none";
-//     });
-//   });
+    allOptions.forEach((option) => {
+      const text = option.textContent.toLowerCase();
+      option.style.display = text.includes(searchTerm) ? "block" : "none";
+    });
+  });
 
-//   document.addEventListener("click", function (e) {
-//     if (!customDropdown.contains(e.target)) {
-//       customDropdown.classList.remove("open");
-//     }
-//   });
+  document.addEventListener("click", function (e) {
+    if (!customDropdown.contains(e.target)) {
+      customDropdown.classList.remove("open");
+    }
+  });
 
-//   document.addEventListener("keydown", function (e) {
-//     if (e.key === "Escape" && customDropdown.classList.contains("open")) {
-//       customDropdown.classList.remove("open");
-//     }
-//   });
-// }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && customDropdown.classList.contains("open")) {
+      customDropdown.classList.remove("open");
+    }
+  });
+}
 
 function updateAssigneeDropdown(projectId) {
   if (!projectId) {
@@ -2778,9 +3296,6 @@ async function openProjectDetails(projectId, projectName) {
 
   try {
     const response = await fetch(`/api/projects/${projectId}/`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch project: ${response.status}`);
-    }
 
     // Debug the raw response
     console.log("📡 Raw response:", response);
@@ -2796,14 +3311,6 @@ async function openProjectDetails(projectId, projectName) {
     }
 
     const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || "Failed to load project details");
-    }
-
-    // Set the global currentProject variable here
-    window.currentProject = data.project;  // Now available for modals
-    setCurrentProject(data.project)
 
     // Debug the data structure
     console.log("📊 Project API response:", {
@@ -2982,130 +3489,6 @@ function createProjectDetailsHTML(data, projectId) {
   `;
 }
 
-// Assuming the button has id="editProjectButton" – adjust selector as needed
-const editButton = document.getElementById('editProjectBtn');
-if (editButton) {
-  editButton.addEventListener('click', function(e) {
-    e.preventDefault();  // Prevent default if it's a link
-    console.log('Edit button clicked!');  // Debug: Confirm click
-    // Add your edit logic here, e.g., open a modal or redirect
-    editProject();  // Call your edit function if defined
-  });
-} else {
-  console.error('Edit button not found!');  // Debug: If selector is wrong
-}
-
-function editProject(projectId) {
-  console.log('editProject called with projectId:', projectId);  // Debug
-
-  const project = window.getCurrentProject ? window.getCurrentProject() : window.currentProject;
-  if (!project) {
-    console.error('No project data available. Ensure openProjectDetails sets window.currentProject.');
-    alert('Project data not available. Please try again.');
-    return;
-  }
-
-  const modalHTML = `
-    <div id="editProjectModal" class="modal-overlay" style="display: flex;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Edit Project</h2>
-          <button class="modal-close" id="closeEditModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <form id="editProjectForm">
-            <label for="projectName">Project Name:</label>
-            <input type="text" id="projectName" value="${project.name.replace(/"/g, '&quot;')}" required>
-            
-            <label for="projectDescription">Description:</label>
-            <textarea id="projectDescription" required>${project.description.replace(/"/g, '&quot;')}</textarea>
-            
-            <div class="modal-actions">
-              <button type="button" id="cancelEdit">Cancel</button>
-              <button type="submit">Save Changes</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-  const modal = document.getElementById('editProjectModal');
-  const closeBtn = document.getElementById('closeEditModal');
-  const cancelBtn = document.getElementById('cancelEdit');
-  const form = document.getElementById('editProjectForm');
-
-  if (!modal || !closeBtn || !cancelBtn || !form) {
-    console.error('Modal elements not created properly.');
-    return;
-  }
-
-  const closeModal = () => {
-    console.log('Closing modal');  // Debug
-    modal.remove();
-  };
-
-  closeBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    console.log('Close button clicked');  // Debug
-    closeModal();
-  });
-
-  cancelBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    console.log('Cancel button clicked');  // Debug
-    closeModal();
-  });
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeModal();
-    }
-  });
-  
-  // Handle form submission
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const updatedData = {
-      name: document.getElementById('projectName').value.trim(),
-      description: document.getElementById('projectDescription').value.trim(),
-    };
-
-    if (!updatedData.name || !updatedData.description) {
-      alert('Please fill in all fields.');
-      return;
-    }
-
-    try {
-      // Send update to backend (adjust URL and method as needed)
-      const response = await fetch(`/api/projects/${project.id}/`, {
-        method: 'PUT',  // PATCH Or PUT
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': window.getCSRFToken ? window.getCSRFToken() : '',  // Use your existing getCSRFToken function
-        },
-        body: JSON.stringify(updatedData),
-      });
-
-      if (response.ok) {
-        console.log('Project updated successfully');
-        alert('Project updated!');
-        closeModal();
-        // Optionally refresh the page or update UI
-        location.reload();  // Or call a function to refresh project details
-      } else {
-        console.error('Update failed:', response.status);
-        alert('Failed to update project. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating project:', error);
-      alert('An error occurred. Please try again.');
-    }
-  });
-}
-
 function createTasksGridHTML(tasks, projectId) {
   // Combine all tasks
   const allTasks = [
@@ -3275,21 +3658,6 @@ function setupProjectDetailsPage(projectId, data) {
       editProject(projectId);
     });
   }
-}
-
-function filterProjects(query) {
-  const projectsList = document.getElementById('projectsList');
-  if (!projectsList) return;
-
-  const projects = projectsList.querySelectorAll('.project-list-item');
-  const lowerQuery = query.toLowerCase();
-
-  projects.forEach(project => {
-    const title = project.querySelector('h3')?.textContent.toLowerCase() || '';
-    const description = project.querySelector('.project-description')?.textContent.toLowerCase() || '';
-    const isVisible = title.includes(lowerQuery) || description.includes(lowerQuery);
-    project.style.display = isVisible ? 'block' : 'none';
-  });
 }
 
 function filterTasks(filter, projectId) {
@@ -3675,7 +4043,6 @@ function setupAllProjectsPage() {
 
 function restoreDashboard() {
   console.log("🔄 Restoring dashboard...");
-  clearCurrentProject();
   hideLoader();
 
   if (!AppState.originalDashboardHTML) {
@@ -3767,17 +4134,81 @@ function updateDashboardUI() {
   updateTeamOnline();
 
   console.log("✅ Complete dashboard UI updated");
-  setupSearchFunctionality();
 }
 
 // =============================================
-// UTILITY FUNCTIONS
+// API SERVICE
 // =============================================
 
-function getCSRFToken() {
-  const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
-  return csrfInput ? csrfInput.value : "";
+class ApiService {
+  constructor(baseUrl = CONFIG.API_BASE) {
+    this.baseUrl = baseUrl;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${this.baseUrl}${endpoint}`;
+    const defaultOptions = {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': this.getCSRFToken(),
+      },
+    };
+
+    try {
+      const response = await fetch(url, { ...defaultOptions, ...options });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`API Error (${endpoint}):`, error);
+      throw error;
+    }
+  }
+
+  getCSRFToken() {
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    return csrfInput ? csrfInput.value : '';
+  }
+
+  // Dashboard endpoints
+  async getDashboardData() {
+    return this.request('/dashboard/full-data/');
+  }
+
+  async createTask(data) {
+    return this.request('/tasks/create/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTaskStatus(taskId, status) {
+    return this.request('/tasks/update-status/', {
+      method: 'POST',
+      body: JSON.stringify({ task_id: taskId, status }),
+    });
+  }
+
+  async createProject(data) {
+    return this.request('/projects/create/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getProjectDetails(projectId) {
+    return this.request(`/projects/${projectId}/`);
+  }
+
+  async search(query) {
+    return this.request(`/search/?q=${encodeURIComponent(query)}`);
+  }
 }
+
+const api = new ApiService();
 
 function showLoader() {
   const loader = document.getElementById("pageLoader");
@@ -3802,6 +4233,130 @@ function hideLoader() {
       }
     });
 }
+
+// =============================================
+// NOTIFICATION SYSTEM
+// =============================================
+
+class NotificationManager {
+  constructor() {
+    this.container = this.createContainer();
+  }
+
+  createContainer() {
+    let container = document.getElementById('notification-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'notification-container';
+      container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        pointer-events: none;
+      `;
+      document.body.appendChild(container);
+    }
+    return container;
+  }
+
+  show(message, type = 'info', duration = CONFIG.NOTIFICATION_DURATION) {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+      <div class="notification-content">
+        <i class="fas fa-${this.getIcon(type)}"></i>
+        <span>${message}</span>
+      </div>
+      <button class="notification-close" onclick="this.parentElement.remove()">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+
+    // Add styles
+    Object.assign(notification.style, {
+      background: this.getBackgroundColor(type),
+      border: `1px solid ${this.getBorderColor(type)}`,
+      color: this.getTextColor(type),
+      padding: '12px 16px',
+      borderRadius: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      marginBottom: '10px',
+      pointerEvents: 'auto',
+      backdropFilter: 'blur(20px)',
+      animation: 'slideInRight 0.3s ease-out',
+    });
+
+    this.container.appendChild(notification);
+
+    // Auto-remove
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, duration);
+  }
+
+  getIcon(type) {
+    const icons = {
+      success: 'check-circle',
+      error: 'exclamation-circle',
+      warning: 'exclamation-triangle',
+      info: 'info-circle'
+    };
+    return icons[type] || 'info-circle';
+  }
+
+  getBackgroundColor(type) {
+    const colors = {
+      success: 'rgba(0, 255, 157, 0.1)',
+      error: 'rgba(255, 107, 107, 0.1)',
+      warning: 'rgba(255, 165, 0, 0.1)',
+      info: 'rgba(0, 170, 255, 0.1)'
+    };
+    return colors[type] || colors.info;
+  }
+
+  getBorderColor(type) {
+    const colors = {
+      success: 'rgba(0, 255, 157, 0.3)',
+      error: 'rgba(255, 107, 107, 0.3)',
+      warning: 'rgba(255, 165, 0, 0.3)',
+      info: 'rgba(0, 170, 255, 0.3)'
+    };
+    return colors[type] || colors.info;
+  }
+
+  getTextColor(type) {
+    const colors = {
+      success: '#00ff9d',
+      error: '#ff6b6b',
+      warning: '#ffa500',
+      info: '#00aaff'
+    };
+    return colors[type] || '#00aaff';
+  }
+}
+
+const notifications = new NotificationManager();
+
+// Add CSS animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+`;
+document.head.appendChild(style);
 
 function showNotification(message, type = "success") {
   const existingNotification = document.querySelector(".notification-toast");
@@ -3987,7 +4542,8 @@ function createTasksPageHTML() {
 
       <div class="tasks-controls">
         <div class="filter-tabs" id="filterTabs">
-          <button class="filter-tab active" data-filter="all">All</button>          
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="my">My Tasks</button>
           <button class="filter-tab" data-filter="assigned">Assigned</button>
           <button class="filter-tab" data-filter="overdue">Overdue</button>
           <button class="filter-tab" data-filter="completed">Completed</button>
@@ -4144,6 +4700,7 @@ function createFallbackTasksPage(data) {
       <div class="tasks-controls">
         <div class="filter-tabs">
           <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="my">My Tasks</button>
           <button class="filter-tab" data-filter="assigned">Assigned</button>
           <button class="filter-tab" data-filter="overdue">Overdue</button>
           <button class="filter-tab" data-filter="completed">Completed</button>
@@ -6077,9 +6634,9 @@ function setupSearchFunctionality() {
   const desktopSuggestions = document.getElementById('desktopSearchSuggestions');
   
   // Mobile search elements
-  const mobileSearchInput = document.getElementById('dashboard-search-input');
+  const mobileSearchInput = document.getElementById('mobileSearchInput');
   const mobileSearchClear = document.getElementById('mobileSearchClear');
-  const mobileSuggestions = document.getElementById('dashboardSearchSuggestions');
+  const mobileSuggestions = document.getElementById('mobileSearchSuggestions');
   
   // Toggle desktop search visibility
   if (desktopSearchToggle && desktopSearchContainer) {
@@ -6164,9 +6721,6 @@ function setupSearchFunctionality() {
       
       if (!query) {
         mobileSuggestions.innerHTML = '';
-        // mobileSuggestions.style.display = 'none';
-        console.log("Suggestions don't exist");
-        
         return;
       }
       
@@ -6174,14 +6728,8 @@ function setupSearchFunctionality() {
       
       searchTimeout = setTimeout(() => {
         performSearch(query, mobileSuggestions);
-        console.log('Suggestions populated:', mobileSuggestions.innerHTML);  // Check content
-        mobileSuggestions.style.display = 'block';  // Force show
-        mobileSuggestions.style.position = 'absolute';  // Ensure positioning
-        mobileSuggestions.style.top = '100%';  // Position below
       }, 300);
     });
-
-    // mobileSuggestions.style.display = 'block';
     
     // Clear button handler
     if (mobileSearchClear) {
@@ -6192,25 +6740,6 @@ function setupSearchFunctionality() {
         this.style.display = 'none';
       });
     }
-  }
-
-  // Replace the existing mobile search button handler with this:
-  const mobileSearchButton = document.querySelector('.dashboard-search-button');
-  console.log('Mobile search button found:', mobileSearchButton);  // Debug: Check if it's null
-  if (mobileSearchButton) {
-    mobileSearchButton.addEventListener('click', function() {
-      console.log('Search button clicked!');  // Debug: Confirm click fires
-      const query = mobileSearchInput.value.trim();
-      if (query) {
-        console.log('Performing search for:', query);  // Debug: Confirm query
-        mobileSuggestions.innerHTML = '<div class="search-loading">Searching...</div>';
-        performSearch(query, mobileSuggestions);
-      } else {
-        console.log('No query to search');  // Debug: If empty
-      }
-    });
-  } else {
-    console.error('Mobile search button not found! Check HTML class.');  // Debug: If not found
   }
   
   // Click outside to close desktop search
@@ -6411,7 +6940,6 @@ function hideSearchSuggestions(input) {
 
 // Perform the actual search
 async function performSearch(query, suggestionsElement) {
-  console.log('performSearch called with query:', query);
   try {
     console.log(`🔍 Searching for: "${query}"`);
     
@@ -6963,3 +7491,147 @@ window.debugTaskTimestamps = debugTaskTimestamps;
 window.debugTimezone = debugTimezone;
 
 console.log("🎯 SwyftTask Dashboard with Task Details loaded successfully");
+
+// function testSearch() {
+//   console.log("🔍 Testing search functionality...");
+  
+//   // Test with sample queries
+//   const testQueries = ['test', 'google', 'victor', 'urgent'];
+  
+//   testQueries.forEach(query => {
+//     console.log(`Testing query: "${query}"`);
+//     fetch(`/api/search/?q=${encodeURIComponent(query)}`)
+//       .then(r => r.json())
+//       .then(data => {
+//         console.log(`Results for "${query}":`, {
+//           success: data.success,
+//           total: data.counts?.total || 0,
+//           tasks: data.counts?.tasks || 0,
+//           projects: data.counts?.projects || 0,
+//           users: data.counts?.users || 0
+//         });
+//       })
+//       .catch(error => {
+//         console.error(`Error testing "${query}":`, error);
+//       });
+//   });
+// }
+
+// window.testSearch = testSearch;
+
+// function debugSearchSetup() {
+//   console.log("🔍 Debugging search setup...");
+  
+//   // Check if elements exist
+//   const elements = {
+//     desktopSearchInput: document.getElementById('desktopSearchInput'),
+//     mobileSearchInput: document.getElementById('mobileSearchInput'),
+//     desktopSearchContainer: document.getElementById('desktopSearchContainer'),
+//     desktopSearchToggle: document.getElementById('desktopSearchToggle'),
+//     desktopSuggestions: document.querySelector('#desktopSearchSuggestions'),
+//     mobileSuggestions: document.querySelector('#mobileSearchSuggestions')
+//   };
+  
+//   console.log('📋 Elements found:', elements);
+  
+//   // Check event listeners
+//   if (elements.desktopSearchInput) {
+//     console.log('🎯 Desktop input event listeners:', {
+//       hasInputListener: !!elements.desktopSearchInput.oninput,
+//       hasFocusListener: !!elements.desktopSearchInput.onfocus,
+//       hasKeydownListener: !!elements.desktopSearchInput.onkeydown
+//     });
+    
+//     // Test if input works
+//     elements.desktopSearchInput.addEventListener('input', function(e) {
+//       console.log('🖱️ Desktop input event fired:', e.target.value);
+//     }, { once: true });
+//   }
+  
+//   // Manually trigger a test search
+//   console.log('🧪 Testing API endpoint...');
+//   fetch('/api/search/?q=test')
+//     .then(r => r.json())
+//     .then(data => {
+//       console.log('✅ API response:', {
+//         success: data.success,
+//         totalResults: data.counts?.total || 0
+//       });
+//     })
+//     .catch(err => {
+//       console.error('❌ API error:', err);
+//     });
+// }
+
+// window.debugSearchSetup = debugSearchSetup;
+
+// // Paste this whole thing into your console:
+
+// window.debugSearchDisplay = function() {
+//   console.log('🔍 Debugging Search Display...');
+//   const containers = {
+//     desktop: document.getElementById('desktopSearchSuggestions'),
+//     mobile: document.getElementById('mobileSearchSuggestions'),
+//     desktopContainer: document.getElementById('desktopSearchContainer')
+//   };
+//   console.log('📦 Containers:', {
+//     desktop: { exists: !!containers.desktop, innerHTML: containers.desktop?.innerHTML, display: containers.desktop?.style.display },
+//     desktopContainer: { exists: !!containers.desktopContainer, display: containers.desktopContainer?.style.display }
+//   });
+//   if (containers.desktop) {
+//     const computed = window.getComputedStyle(containers.desktop);
+//     console.log('💅 Computed Style:', { display: computed.display, visibility: computed.visibility, height: computed.height });
+//   }
+// };
+
+// window.testSearchWithDisplay = function() {
+//   console.log('🧪 Testing search with display...');
+//   const container = document.getElementById('desktopSearchContainer');
+//   const input = document.getElementById('desktopSearchInput');
+//   const suggestions = document.getElementById('desktopSearchSuggestions');
+  
+//   if (!container || !input || !suggestions) {
+//     console.error('❌ Missing elements!');
+//     return;
+//   }
+  
+//   container.style.display = 'block';
+//   suggestions.innerHTML = `
+//     <div style="padding: 20px; background: #1a1a1a; border: 2px solid #00aaff; color: white;">
+//       <h3 style="margin: 0 0 10px 0;">🎉 Test Message</h3>
+//       <p>If you can see this, the suggestions container is working!</p>
+//       <p style="color: #888; font-size: 0.9em;">The issue is likely in your CSS or the display logic.</p>
+//     </div>
+//   `;
+//   console.log('✅ Test message displayed');
+// };
+
+// console.log('✅ Debug tools ready. Run: testSearchWithDisplay()');
+
+
+// Add this at the end of your dashboard.js
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("🧪 Testing basic functionality...");
+  
+  // Test hamburger
+  const hamburger = document.getElementById("hamburgerBtn");
+  if (hamburger) {
+    hamburger.addEventListener('click', function() {
+      console.log("🍔 Hamburger clicked!");
+      alert("Hamburger works!");
+    });
+  } else {
+    console.log("❌ Hamburger not found");
+  }
+  
+  // Test account menu
+  const accountBtn = document.getElementById("accountBtn");
+  if (accountBtn) {
+    accountBtn.addEventListener('click', function() {
+      console.log("👤 Account clicked!");
+      alert("Account menu works!");
+    });
+  } else {
+    console.log("❌ Account button not found");
+  }
+});

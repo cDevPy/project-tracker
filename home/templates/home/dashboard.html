@@ -4,14 +4,15 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=3" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex, nofollow">
   <title>SwyftTask — Dashboard</title>
   <link rel="icon" href="{% static 'image/logo.png' %}"></link>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <!-- <link rel="stylesheet" href="{% static 'css/extra-dashboard.css' %}"> -->
+  <!-- <link rel="stylesheet" href="../../../projectTracker/static/css/dashboard.css"> -->
+  <!-- <script src="../../../projectTracker/static/js/dashboard.js"></script> -->
   <script src="{% static 'js/dashboard.js' %}"></script>
   <style>
     /* Fallback for Font Awesome */
@@ -51,11 +52,22 @@
           +
         </button> -->
 
+        <!-- Desktop Search -->
         <div class="desktop-search-container" id="desktopSearchContainer">
           <div class="desktop-search-wrapper">
-            <i class="fas fa-search search-icon"></i>
-            <input type="text" id="desktopSearchInput" class="desktop-search-bar"
-              placeholder="Search tasks, projects, people..." autocomplete="off">
+            <div class="search-input-group">
+              <i class="fas fa-search search-icon"></i>
+              <input type="text" 
+                    id="desktopSearchInput" 
+                    class="desktop-search-bar"
+                    placeholder="Search tasks, projects, people..." 
+                    autocomplete="off"
+                    aria-label="Search">
+              <button class="search-clear" id="desktopSearchClear" style="display: none;">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="search-suggestions" id="desktopSearchSuggestions"></div>
           </div>
         </div>
 
@@ -109,11 +121,30 @@
     <main class="main" id="mainContent">
       <div id="originalDashboardContent">
 
-        <div class="mobile-search-section">
-          <div class="mobile-search-wrapper">
-            <i class="fas fa-search"></i>
-            <input type="text" id="mobileSearchInput" class="mobile-search-bar"
-              placeholder="Search tasks, projects, people..." autocomplete="off">
+        <!-- Add this right before <div class="welcome-row"> in dashboard.html -->
+        <!-- <div class="dashboard-search-section">
+          <div class="dashboard-search-wrapper">
+            <input type="text" id="dashboard-search-input" placeholder="Search tasks, projects..." class="dashboard-search-input">
+            <button type="button" class="dashboard-search-button">
+              <i class="fas fa-search"></i>
+            </button>
+            <div class="search-suggestions" id="dashboardSearchSuggestions"></div>
+          </div>
+        </div> -->
+
+        <div class="dashboard-search-section">
+          <div class="dashboard-search-wrapper">
+            <div class="search-input-group">  <!-- Add this wrapper for consistency with desktop -->
+              <i class="fas fa-search search-icon"></i>  <!-- Optional: Add icon for visual match -->
+              <input type="text" id="dashboard-search-input" placeholder="Search tasks, projects..." class="dashboard-search-input" autocomplete="off" aria-label="Search">
+              <button class="search-clear" id="mobileSearchClear" style="display: none;">  <!-- Add this clear button -->
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <button type="button" class="dashboard-search-button">  <!-- Keep the search button -->
+              <i class="fas fa-search"></i>
+            </button>
+            <div class="search-suggestions" id="dashboardSearchSuggestions"></div>
           </div>
         </div>
 
@@ -352,15 +383,23 @@
                   <span class="task-title">{{ task.title }}</span>
                   <small class="muted">
                     {% if task.due_date %}
-                    {% if task.due_date == today %}due today
-                    {% elif task.due_date < today %}overdue {% else %}in {{ task.due_date|timeuntil:today }} {% endif %}
-                      {% else %} no deadline {% endif %} </small>
+                      {% if task.due_date == today %}
+                        due today
+                      {% elif task.due_date < today %}
+                        overdue 
+                        {% else %}
+                          in {{ task.due_date|timeuntil:today }} 
+                      {% endif %}
+                    {% else %} 
+                      no deadline 
+                    {% endif %} 
+                  </small>
                 </li>
                 {% empty %}
                 <li><span class="task-title">No tasks assigned</span></li>
                 {% endfor %}
               </ul>
-              <a href="#" class="btn-link" id="viewAllAssignedTasks" onclick="showTasksPage()">View all tasks</a>
+              <!-- <a href="#" class="btn-link" id="viewAllAssignedTasks" onclick="showTasksPage()">View all tasks</a> -->
             </div>
 
             <div class="panel activity-feed">
@@ -630,7 +669,7 @@
             </div>
             <div class="field-group">
               <label>Renewal Date</label>
-              <input type="text" value="15 Nov 2025" disabled>
+              <input type="text" value="15 Mar 2026" disabled>
             </div>
           </div>
         </div>
@@ -899,7 +938,7 @@
       <div class="tasks-controls">
         <div class="filter-tabs">
           <button class="filter-tab active" data-filter="all">All</button>
-          <button class="filter-tab" data-filter="my">My Tasks</button>
+          <!-- <button class="filter-tab" data-filter="my">My Tasks</button> -->
           <button class="filter-tab" data-filter="assigned">Assigned</button>
           <button class="filter-tab" data-filter="overdue">Overdue <span class="inbox-badge">3</span></button>
           <button class="filter-tab" data-filter="completed">Completed</button>
@@ -1052,7 +1091,7 @@
                   <input type="date" id="taskDueDate" name="due_date" class="form-input">
               </div>
 
-              <div class="form-actions">
+              <div class="form-actions tasks">
                   <button type="button" class="qa-btn cancel-btn">Cancel</button>
                   <button type="submit" class="qa-btn submit-btn">
                       <i class="fas fa-check"></i> Create Task
@@ -1118,7 +1157,7 @@
           </div>
         </div>
 
-        <div class="form-actions">
+        <div class="form-actions projects">
           <button type="button" onclick="restoreDashboard()" class="cancel-btn">
             <i class="fas fa-times"></i> Cancel
           </button>
@@ -1330,6 +1369,7 @@
       </div>
     </div>
   </template>
+  
   <!-- CSRF Token for AJAX requests -->
   {% csrf_token %}
 
@@ -1364,143 +1404,143 @@
     console.log('🎯 Dashboard data loaded:', window.djangoData);
   </script>
   <script>
-// Global state initialization
-window.AppState = window.AppState || {
-  originalDashboardHTML: null,
-  currentPage: "dashboard",
-  cachedData: {},
-  needsRefresh: {}
-};
-
-// Override existing restoreDashboard if needed
-if (typeof window.restoreDashboard !== 'function') {
-  window.restoreDashboard = function() {
-    console.log("🔄 Restoring dashboard...");
-    window.location.hash = "#dashboard";
-    localStorage.setItem("swyfttask-page", "dashboard");
-    
-    // Trigger a soft reload
-    const event = new CustomEvent('dashboard-restore');
-    document.dispatchEvent(event);
-  };
-}
-
-// Listen for dashboard restore events
-document.addEventListener('dashboard-restore', function() {
-  // This will be handled by the main dashboard.js
-  console.log('Dashboard restore requested');
-});
-
-// Ensure data is loaded on page load
-document.addEventListener('DOMContentLoaded', function() {
-  // Check if we're on dashboard
-  if (window.location.hash === '#dashboard' || !window.location.hash) {
-    console.log('Loading dashboard data...');
-    
-    // If loadDashboardData exists, call it
-    if (typeof window.loadDashboardData === 'function') {
-      window.loadDashboardData();
-    }
-  }
-});
-
-// Handle browser back/forward
-window.addEventListener('popstate', function(event) {
-  if (event.state && event.state.page === 'dashboard') {
-    console.log('Navigated back to dashboard via browser');
-    if (typeof window.loadDashboardData === 'function') {
-      window.loadDashboardData();
-    }
-  }
-});
-</script>
-<script>
-// Initialize global state and functions
-window.addEventListener('DOMContentLoaded', function() {
-  // Make sure all functions are available globally
-  if (typeof restoreDashboard !== 'function') {
-    window.restoreDashboard = function() {
-      console.log('Restoring dashboard...');
-      // This will be handled by the main dashboard.js
+    // Global state initialization
+    window.AppState = window.AppState || {
+      originalDashboardHTML: null,
+      currentPage: "dashboard",
+      cachedData: {},
+      needsRefresh: {}
     };
-  }
-  
-  // Set up event listeners for any buttons that might be in the original HTML
-  setTimeout(function() {
-    // Add click handlers to existing project cards
-    document.querySelectorAll('.pinned-project:not(.view-all-projects)').forEach(card => {
-      card.addEventListener('click', function(e) {
-        if (!e.target.closest('.project-menu-btn')) {
-          const projectId = this.getAttribute('data-project-id');
-          const projectName = this.querySelector('h4').textContent.trim();
-          if (typeof openProjectDetails === 'function') {
-            openProjectDetails(projectId, projectName);
-          }
-        }
-      });
-    });
-    
-    // Add click handler to View All button
-    const viewAllBtn = document.querySelector('.view-all-projects');
-    if (viewAllBtn && typeof showAllProjects === 'function') {
-      viewAllBtn.addEventListener('click', showAllProjects);
-    }
-  }, 1000);
-});
-</script>
-<script>
-// Override the handleProjectFormSubmit to ensure it works
-window.handleProjectFormSubmit = async function(form) {
-    console.log("Submitting project form...");
-    
-    // Simple validation
-    const projectName = form.querySelector('#projectName').value;
-    if (!projectName || projectName.trim() === '') {
-        alert('Project name is required');
-        return false;
-    }
-    
-    // Show loading
-    const submitBtn = form.querySelector('.submit-btn');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
-    submitBtn.disabled = true;
-    
-    try {
-        const formData = new FormData(form);
-        const data = {
-            name: formData.get('name'),
-            description: formData.get('description'),
-            invited_emails: []
-        };
+
+    // Override existing restoreDashboard if needed
+    if (typeof window.restoreDashboard !== 'function') {
+      window.restoreDashboard = function() {
+        console.log("🔄 Restoring dashboard...");
+        window.location.hash = "#dashboard";
+        localStorage.setItem("swyfttask-page", "dashboard");
         
-        const response = await fetch('/api/projects/create/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(data)
+        // Trigger a soft reload
+        const event = new CustomEvent('dashboard-restore');
+        document.dispatchEvent(event);
+      };
+    }
+
+    // Listen for dashboard restore events
+    document.addEventListener('dashboard-restore', function() {
+      // This will be handled by the main dashboard.js
+      console.log('Dashboard restore requested');
+    });
+
+    // Ensure data is loaded on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Check if we're on dashboard
+      if (window.location.hash === '#dashboard' || !window.location.hash) {
+        console.log('Loading dashboard data...');
+        
+        // If loadDashboardData exists, call it
+        if (typeof window.loadDashboardData === 'function') {
+          window.loadDashboardData();
+        }
+      }
+    });
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', function(event) {
+      if (event.state && event.state.page === 'dashboard') {
+        console.log('Navigated back to dashboard via browser');
+        if (typeof window.loadDashboardData === 'function') {
+          window.loadDashboardData();
+        }
+      }
+    });
+    </script>
+    <script>
+    // Initialize global state and functions
+    window.addEventListener('DOMContentLoaded', function() {
+      // Make sure all functions are available globally
+      if (typeof restoreDashboard !== 'function') {
+        window.restoreDashboard = function() {
+          console.log('Restoring dashboard...');
+          // This will be handled by the main dashboard.js
+        };
+      }
+      
+      // Set up event listeners for any buttons that might be in the original HTML
+      setTimeout(function() {
+        // Add click handlers to existing project cards
+        document.querySelectorAll('.pinned-project:not(.view-all-projects)').forEach(card => {
+          card.addEventListener('click', function(e) {
+            if (!e.target.closest('.project-menu-btn')) {
+              const projectId = this.getAttribute('data-project-id');
+              const projectName = this.querySelector('h4').textContent.trim();
+              if (typeof openProjectDetails === 'function') {
+                openProjectDetails(projectId, projectName);
+              }
+            }
+          });
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('Project created successfully!');
-            window.location.reload(); // Simple reload to refresh data
-        } else {
-            alert('Error: ' + (result.error || 'Failed to create project'));
+        // Add click handler to View All button
+        const viewAllBtn = document.querySelector('.view-all-projects');
+        if (viewAllBtn && typeof showAllProjects === 'function') {
+          viewAllBtn.addEventListener('click', showAllProjects);
         }
-    } catch (error) {
-        alert('Network error: ' + error.message);
-    } finally {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    }
-    
-    return false;
-};
-</script>
+      }, 1000);
+    });
+    </script>
+    <script>
+    // Override the handleProjectFormSubmit to ensure it works
+    window.handleProjectFormSubmit = async function(form) {
+        console.log("Submitting project form...");
+        
+        // Simple validation
+        const projectName = form.querySelector('#projectName').value;
+        if (!projectName || projectName.trim() === '') {
+            alert('Project name is required');
+            return false;
+        }
+        
+        // Show loading
+        const submitBtn = form.querySelector('.submit-btn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        submitBtn.disabled = true;
+        
+        try {
+            const formData = new FormData(form);
+            const data = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                invited_emails: []
+            };
+            
+            const response = await fetch('/api/projects/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('Project created successfully!');
+                window.location.reload(); // Simple reload to refresh data
+            } else {
+                alert('Error: ' + (result.error || 'Failed to create project'));
+            }
+        } catch (error) {
+            alert('Network error: ' + error.message);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+        
+        return false;
+    };
+    </script>
 </body>
 
 </html>

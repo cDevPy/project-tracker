@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/tasks/<int:task_id>/delete/', views.delete_task_api, name='delete_task_api'),
     path('debug/tasks/', views.debug_tasks, name='debug_tasks'),
     path('debug/tasks/<int:project_id>/', views.debug_tasks, name='debug_tasks_project'),
+    path('api/search/', views.search_all, name='search_all')
 ]
