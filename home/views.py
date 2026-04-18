@@ -8,6 +8,14 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.db.models import Q
 from .forms import TaskForm, ProjectForm, InviteForm
+from projects.models import ProjectMember
+import json
+from notifications.models import Notification
+from django.core.serializers.json import DjangoJSONEncoder
+#from users.models import User  # your custom user model
+from notifications.models import Notification  # Notification app
+import pytz
+
 
 User = get_user_model()
 
@@ -16,74 +24,80 @@ def landing(request):
     template_data = {'title': 'Get Started | SwyftTask'}
     return render(request, 'home/landing_page.html', {'template_data': template_data})
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-from datetime import datetime, date
-from projects.models import Project
-from tasks.models import Task
 #from django.contrib.auth.models import User
-from django.contrib import messages
-from django.db.models import Q
-import json
-from django.core.serializers.json import DjangoJSONEncoder
-import pytz
 
 # home/views.py - Update the dashboard view function
+
+
+
+# In home/views.py dashboard view, near the top with other session.pop calls
+
+# Add to context
+
 @login_required
 def dashboard(request):
-    # Get user's projects and tasks
+    
+    play_sound = request.session.pop('play_notification_sound', False)
+
+
+    pending_notification = request.session.pop('pending_system_notification', None)
+    if pending_notification:
+        Notification.objects.create(
+            user=request.user,
+            type='system',
+            message=pending_notification,
+            is_read=False
+        )
+        request.session['play_notification_sound'] = True
+
+    welcome_project_id   = request.session.pop('welcome_project_id', None)
+    welcome_project_name = request.session.pop('welcome_project_name', None)
+    welcome_role         = request.session.pop('welcome_role', None)
+
+
+    
+    # -----------------------------
+    # Existing dashboard logic
+    # -----------------------------
     deleted_count = cleanup_user_projects(request.user)
     if deleted_count > 0:
         print(f"🧹 Cleaned up {deleted_count} duplicate projects")
     
-    # Now get unique projects
     unique_projects = Project.objects.filter(
         Q(owner=request.user) | Q(members=request.user)
     ).order_by('name', '-created_at')
     
-    # Use Python to ensure uniqueness
     projects = []
     seen_names = set()
-    
     for project in unique_projects:
         if project.name not in seen_names:
             seen_names.add(project.name)
             projects.append(project)
     
-    # Use projects list for the rest of your code
     all_tasks = Task.objects.filter(project__in=projects)
     
-    # Calculate counts - USE len() FOR LISTS, NOT count()
-    active_projects_count = len(projects)  # Changed from projects.count()
+    active_projects_count = len(projects)
     tasks_due_count = all_tasks.exclude(status='done').count()
     overdue_count = all_tasks.filter(
         due_date__lt=timezone.now().date(), 
         status__in=['todo', 'inprogress', 'review']
     ).count()
     
-    # Fix team_count - need to extract IDs from the projects list
     project_ids = [project.id for project in projects]
     team_count = User.objects.filter(
         Q(project_owner__id__in=project_ids) | 
         Q(project_member__id__in=project_ids)
     ).distinct().count()
     
-    # Get today's date
     today = timezone.now().date()
-    
-    # Tasks due today
     tasks_due_today = all_tasks.filter(
         due_date=today,
         status__in=['todo', 'inprogress', 'review']
     )
     
-    # Categorize tasks for Kanban board
     todo_tasks = all_tasks.filter(status='todo')[:5]
     inprogress_tasks = all_tasks.filter(status='inprogress')[:5]
-    # If inprogress is empty, check for other possible status values
     if inprogress_tasks.count() == 0:
-        # Check for 'pending' or 'in_progress'
         inprogress_tasks = all_tasks.filter(
             Q(status='inprogress') | 
             Q(status='pending') | 
@@ -92,26 +106,16 @@ def dashboard(request):
     review_tasks = all_tasks.filter(status='review')[:5]
     done_tasks = all_tasks.filter(status='done')[:5]
     
-    # Your assigned tasks
     your_tasks = all_tasks.filter(assigned_to=request.user).exclude(status='done').order_by('-due_date')[:5]
-    
-    # Recent activity
     recent_activity = all_tasks.order_by('-created_at')[:5]
     
-    # Calculate progress for each project WITH TASK COUNT
     projects_with_stats = []
-    for project in projects[:4]:  # Show up to 4 projects in pinned section
+    for project in projects[:4]:
         total_tasks = Task.objects.filter(project=project).count()
         completed_tasks = Task.objects.filter(project=project, status='done').count()
-        
-        if total_tasks > 0:
-            progress = int((completed_tasks / total_tasks) * 100)
-        else:
-            progress = 0
-        
-        # Add progress and CSS class based on progress
+        progress = int((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
         project.progress = progress
-        project.task_count = total_tasks  # Add task count to project object
+        project.task_count = total_tasks
         if progress < 50:
             project.css_class = 'urgent'
         elif progress < 90:
@@ -120,14 +124,51 @@ def dashboard(request):
             project.css_class = ''
         projects_with_stats.append(project)
     
-    # Team members (limit to 4 for display) - use project_ids
     team_members = User.objects.filter(
         Q(project_owner__id__in=project_ids) | 
         Q(project_member__id__in=project_ids)
     ).distinct()[:4]
     
-    # Format today's date for display
     today_formatted = datetime.now().strftime("%A, %d %B %Y")
+    
+    # -----------------------------
+    # NEW: Notifications Integration
+    # -----------------------------
+    unread_notifications = Notification.objects.filter(
+        user=request.user, is_read=False
+    ).order_by('-created_at')
+    
+    notif_count = unread_notifications.count()
+    
+    # -----------------------------
+    # Context for template
+    # -----------------------------
+    context = {
+        # Existing context
+        'projects': projects_with_stats,
+        'all_tasks': all_tasks,
+        'active_projects_count': active_projects_count,
+        'tasks_due_count': tasks_due_count,
+        'overdue_count': overdue_count,
+        'team_count': team_count,
+        'tasks_due_today': tasks_due_today,
+        'todo_tasks': todo_tasks,
+        'inprogress_tasks': inprogress_tasks,
+        'review_tasks': review_tasks,
+        'done_tasks': done_tasks,
+        'your_tasks': your_tasks,
+        'recent_activity': recent_activity,
+        'team_members': team_members,
+        'today_formatted': today_formatted,
+        'default_greeting': 'Hello',
+        
+        # Notifications
+        'play_sound': play_sound,
+        'notif_count': notif_count,
+        'unread_notifications_count': notif_count,
+        'notifications': unread_notifications,
+        'recent_notifications': unread_notifications,
+    }
     
     # Prepare task data for JSON serialization
     def format_task(task):
@@ -181,6 +222,13 @@ def dashboard(request):
         'default_greeting': 'Hello',
         'greeting': greeting,
         'current_time': now,
+        'play_sound': play_sound,
+
+        'welcome_project_id' : welcome_project_id,
+        'welcome_project_name' : welcome_project_name,
+        'welcome_role'        : welcome_role,
+
+
         # Basic counts
         'active_projects_count': active_projects_count,
         'tasks_due_count': tasks_due_count,
@@ -1630,3 +1678,6 @@ def search_all(request):
             'success': False,
             'error': str(e)
         }, status=500)
+    
+
+

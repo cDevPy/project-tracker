@@ -6963,3 +6963,272 @@ window.debugTaskTimestamps = debugTaskTimestamps;
 window.debugTimezone = debugTimezone;
 
 console.log("🎯 SwyftTask Dashboard with Task Details loaded successfully");
+
+const notifBtn = document.getElementById('notificationBtn');
+const notifMenu = document.getElementById('notificationMenu');
+
+notifBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    notifMenu.style.display =
+        notifMenu.style.display === 'block' ? 'none' : 'block';
+});
+
+document.addEventListener('click', function () {
+    notifMenu.style.display = 'none';
+});
+
+
+function openInviteModal(projectId) {
+    document.getElementById('inviteModal').classList.remove('hidden');
+    document.getElementById('projectIdInput').value = projectId;
+
+    // Set form action dynamically
+    document.getElementById('inviteForm').action = `/invite/${projectId}/`;
+}
+
+function closeInviteModal() {
+    document.getElementById('inviteModal').classList.add('hidden');
+}
+
+
+// MODAL FIX
+
+function openInviteModal(projectId) {
+    console.log("PROJECT ID:", projectId); // DEBUG
+
+    if(!projectId || projectId === "undefined"){
+        alert("Project ID Missing");
+        return;
+    }
+
+    document.getElementById('inviteModal').classList.remove('hidden');
+    document.getElementById('projectIdInput').value = projectId;
+    document.getElementById('inviteForm').action = `/invite/${projectId}/`;
+    document.body.style.overflow = "hidden"; // 🔥 lock background
+}
+
+function closeInviteModal() {
+    document.getElementById('inviteModal').classList.add('hidden');
+    document.body.overflow = "auto"; // 🔥 unlock
+}
+
+
+
+//NOTIFICATION AND LIVE UPDATE FEATURE
+
+// CSRF TOKEN
+
+// ================================
+// NOTIFICATION + LIVE UPDATE SYSTEM
+// ================================
+
+// CSRF TOKEN
+function getCSRFToken() {
+    return document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken'))
+        ?.split('=')[1];
+}
+
+// ================================
+// STATE
+// ================================
+let lastNotificationCount = 0;
+
+// ================================
+// INITIALIZATION
+// ================================
+document.addEventListener('DOMContentLoaded', () => {
+    const badge = document.getElementById('notification-count');
+    const configEl = document.getElementById('notification-config');
+
+    // Initialize count from DOM
+    if (badge) {
+        lastNotificationCount = parseInt(badge.textContent) || 0;
+    }
+
+    // Play sound if Django says so (first load only)
+    const shouldPlayNotification =
+        configEl?.dataset.playSound === "true";
+
+    if (shouldPlayNotification) {
+        console.log("🔥 PLAYING SOUND ON LOAD");
+        triggerNotificationAlert();
+    }
+
+    // Start polling
+    updateNotificationCount();
+    setInterval(updateNotificationCount, 5000);
+});
+
+// ================================
+// FETCH + UPDATE COUNT
+// ================================
+function updateNotificationCount() {
+    fetch('/notifications/unread_count/')
+        .then(res => res.json())
+        .then(data => {
+            const newCount = data.count;
+            const prevCount = lastNotificationCount;
+
+            console.log("OLD:", prevCount, "NEW:", newCount);
+
+            // 🔔 Only trigger when count increases
+            if (newCount > prevCount) {
+                console.log("🔔 New notification detected");
+                triggerNotificationAlert();
+            }
+
+            // Update state AFTER comparison
+            lastNotificationCount = newCount;
+
+            renderNotificationCount(newCount);
+        })
+        .catch(err => console.error("Notification fetch error:", err));
+}
+
+// ================================
+// UPDATE BADGE UI
+// ================================
+function renderNotificationCount(count) {
+    const badge = document.getElementById('notifBadge');
+
+    if (!badge) return;
+
+    if (count > 0) {
+        badge.innerText = count;
+        badge.style.display = 'inline-flex';
+    } else {
+        badge.innerText = '';
+        badge.style.display = 'none';
+    }
+}
+
+// ================================
+// MARK ALL AS READ
+// ================================
+function markAllAsRead() {
+    fetch('/notifications/mark-all-read/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Failed");
+        return res.json();
+    })
+    .then(() => {
+    document.querySelectorAll('.unread-dot').forEach(dot => dot.remove());
+    document.querySelectorAll('.notification-item').forEach(item => {
+        item.classList.remove('unread');
+    });
+
+    renderNotificationCount(0); // 🔥 immediate sync
+    lastNotificationCount = 0;
+});
+}
+
+
+
+// ================================
+// CLEAR ALL NOTIFICATIONS
+// ================================
+function clearAllNotifications() {
+    if (confirm("Clear all notifications?")) {
+        fetch('/notifications/clear-all/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        }).then(() => {
+            location.reload();
+        });
+    }
+}
+
+// ================================
+// HANDLE NOTIFICATION CLICK (UNIFIED)
+// ================================
+document.addEventListener('click', function(e) {
+    const item = e.target.closest('.notification-item');
+    if (!item) return;
+
+    const notifId = item.dataset.id;
+    const projectId = item.dataset.projectId;
+    const projectName = item.dataset.projectName;
+
+    // Mark as read
+    if (notifId) {
+        fetch(`/notifications/mark-read/${notifId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken()
+            }
+        });
+
+        item.classList.remove('unread');
+        item.querySelector('.unread-dot')?.remove();
+    }
+
+    // Open project if linked
+    if (projectId && projectName) {
+        const dropdown = item.closest('.dropdown-menu');
+        if (dropdown) {
+            bootstrap.Dropdown
+                .getInstance(dropdown.previousElementSibling)
+                ?.hide();
+        }
+
+        openProjectDetails(parseInt(projectId), projectName);
+    }
+});
+
+// ================================
+// NOTIFICATION ALERT (SOUND + UI)
+// ================================
+function triggerNotificationAlert() {
+    console.log("🔥 ALERT TRIGGERED");
+
+    const sound = document.getElementById('notificationSound');
+    const badge = document.getElementById('notifBadge');
+
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(err => console.log("Sound error:", err));
+    }
+
+    if (badge) {
+        badge.classList.add('pulse');
+
+        setTimeout(() => {
+            badge.classList.remove('pulse');
+        }, 1500);
+    }
+}
+
+// ================================
+// STOP PULSE WHEN OPENING DROPDOWN
+// ================================
+document.getElementById('notificationBtn')
+    ?.addEventListener('click', () => {
+        const badge = document.getElementById('notifBadge');
+        badge?.classList.remove('pulse');
+    });
+
+// ================================
+// UNLOCK AUDIO (REQUIRED FOR BROWSERS)
+// ================================
+document.addEventListener('click', () => {
+    const sound = document.getElementById('notificationSound');
+    if (sound) {
+        sound.play()
+            .then(() => {
+                sound.pause();
+                sound.currentTime = 0;
+            })
+            .catch(() => {});
+    }
+}, { once: true });
+

@@ -11,9 +11,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- <link rel="stylesheet" href="../../../projectTracker/static/css/dashboard.css"> -->
   <!-- <script src="../../../projectTracker/static/js/dashboard.js"></script> -->
-  <script src="{% static 'js/dashboard.js' %}"></script>
   <style>
     /* Fallback for Font Awesome */
     .fas::before, .fa::before, .far::before, .fa-solid::before {
@@ -21,6 +21,17 @@
     }
   </style>
 </head>
+
+
+  {% if messages %}
+    <div class="message-container">
+      {% for message in messages %}
+        <div class="alert {{ message.tags }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 
 <body>
   <div class="loading-overlay" id="pageLoader">
@@ -78,13 +89,95 @@
           </button>
         </div>
 
+        {% comment %} NOTIFICATION DROPDOWN {% endcomment %}
+
         <div class="icon-wrapper">
-          <button class="icon-btn" aria-haspopup="true" id="notificationBtn">
+          <button class="icon-btn" 
+            id="notificationBtn"
+            data-bs-toggle="dropdown" 
+            data-bs-auto-close="true"
+            aria-expanded="false">
+
             <i class="fa-regular fa-bell"></i>
             <span class="tooltip">Notifications</span>
-            <span class="notif-badge" id="notifBadge">0</span>
+
+            {% if unread_notifications_count > 0 %}
+              <span class="notif-badge" id="notifBadge">
+                {{ unread_notifications_count }}
+              </span>
+            {% endif %}
           </button>
+
+  <!-- Dropdown -->
+  <ul class="dropdown-menu dropdown-menu-end shadow-lg notification-dropdown"
+      aria-labelledby="notificationBtn">
+
+    <!-- Header -->
+    <li class="dropdown-header d-flex justify-content-between align-items-center border-bottom pb-2">
+      <strong>Notifications</strong>
+
+      <div>
+        {% if unread_notifications_count > 0 %}
+          <a href="#" onclick="event.preventDefault(); markAllAsRead();" 
+             class="text-primary small me-3 text-decoration-none">
+             Mark all as read
+          </a>
+        {% endif %}
+
+        <a href="#" onclick="event.preventDefault(); clearAllNotifications();" 
+           class="text-danger small text-decoration-none">
+           Clear all
+        </a>
+      </div>
+    </li>
+
+    <!-- Notifications -->
+    {% for notification in recent_notifications %}
+      <li class="notification-item {% if not notification.is_read %}unread{% endif %}"
+      data-id="{{ notification.id }}"
+      {% if notification.related_project %}
+        data-project-id="{{ notification.related_project.id }}"
+        data-project-name="{{ notification.related_project.name|escapejs }}"
+        style="cursor: pointer;"
+      {% endif %}>
+
+    <a class="dropdown-item d-flex align-items-start py-3" href="#"
+       onclick="handleNotificationClick(event, this)">
+
+      {% if not notification.is_read %}
+        <span class="unread-dot"></span>
+      {% endif %}
+
+      <div class="flex-shrink-0 me-3 mt-1">
+        {% if notification.type == 'project_join' %}
+          <i class="fa-solid fa-user-plus text-success"></i>
+        {% elif notification.type == 'invite_accepted' %}
+          <i class="fa-solid fa-user-check text-primary"></i>
+        {% else %}
+          <i class="fa-solid fa-info-circle text-info"></i>
+        {% endif %}
+      </div>
+
+      <div class="flex-grow-1">
+        <div class="small text-muted">
+          {{ notification.get_type_display }}
         </div>
+        <div class="mt-1">{{ notification.message }}</div>
+        <small class="text-muted">
+          {{ notification.created_at|timesince }} ago
+        </small>
+      </div>
+
+      </a>
+    </li>
+    {% empty %}
+      <li class="text-center py-3 text-muted">
+        No notifications
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+
 
         <div class="icon-wrapper account-wrapper">
           <button id="accountBtn">
@@ -158,8 +251,14 @@
             <button class="qa-btn" id="newTaskBtn"><i class="fa fa-plus" style="margin-right:8px"></i>New Task</button>
             <button class="qa-btn" id="newProjectBtn"><i class="fa fa-briefcase" style="margin-right:8px"></i>New
               Project</button>
-            <button class="qa-btn" id="inviteBtn"><i class="fa fa-user-plus"
-                style="margin-right:8px"></i>Invite</button>
+              {% for project in projects %}
+                <button 
+                  type="button" 
+                  onclick="openInviteModal('{{ project.id }}')" 
+                  class="qa-btn">
+                  <i class="fa fa-user-plus" style="margin-right: 8px"></i>Invite
+                </button>
+              {% endfor %}
           </div>
         </div>
 
@@ -1369,9 +1468,66 @@
       </div>
     </div>
   </template>
-  
+
+  <!-- Modal Feature -->
+  <div id="inviteModal" class="modal hidden">
+  <div class="modal-box">
+    
+    <div class="modal-header">
+      <h2>Invite Team Member</h2>
+      <span class="close-btn" onclick="closeInviteModal()">×</span>
+    </div>
+
+    <form method="POST" id="inviteForm">
+      {% csrf_token %}
+      <input type="hidden" name="project_id" id="projectIdInput">
+
+      <div class="form-group">
+        <label>Email Address *</label>
+        <input type="email" name="email" placeholder="teammate@example.com" required>
+      </div>
+
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role">
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick="closeInviteModal()">Cancel</button>
+        <button type="submit" class="btn-primary">Send Invitation</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+{% comment %} MESSAGE TRIGGER {% endcomment %}
+
+
+{% if messages %}
+    {% for message in messages %}
+        {% if message == "INVITE_SENT_NOTIFICATION" %}
+            <script>
+                window.triggerNotificationOnLoad = true;
+            </script>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+
+
+
+
+
   <!-- CSRF Token for AJAX requests -->
   {% csrf_token %}
+
+<script>
+    window.shouldPlayNotification = {{ play_sound|yesno:"true,false" }};
+</script>
 
   <!-- Django Data Injection -->
   <script type="application/json" id="django-data">
@@ -1541,6 +1697,37 @@
         return false;
     };
     </script>
+
+
+
+// Welcome toast after joining a project via invite
+<script>
+(function() {
+  const welcomeProjectId   = "{{ welcome_project_id|default:'' }}";
+  const welcomeProjectName = "{{ welcome_project_name|default:''|escapejs }}";
+  const welcomeRole        = "{{ welcome_role|default:''|escapejs }}";
+
+  if (welcomeProjectId && welcomeProjectName) {
+    showToast(`Welcome to ${welcomeProjectName}! You joined as ${welcomeRole}.`, 'success');
+    openProjectDetails(parseInt(welcomeProjectId), welcomeProjectName);
+  }
+})();
+</script>
+
+    <div id="notification-config"
+         data-play-sound="{{ play_sound|default:False|yesno:'true,false' }}">
+    </div>
+
+    
+    <audio id="notificationSound" preload="auto">
+      <source src="{% static 'sounds/notification.mp3' %}" type="audio/mpeg">
+
+    </audio>
+
+
+
+      <script src="{% static 'js/dashboard.js' %}"></script>
+
 </body>
 
 </html>

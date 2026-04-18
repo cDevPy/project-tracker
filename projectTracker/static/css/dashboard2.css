@@ -1,0 +1,170 @@
+/* ================================
+   DROPDOWN CONTAINER
+================================ */
+.notification-dropdown {
+  width: 370px;
+  border-radius: 20px;
+  padding: 8px 0;
+  background: #ffffff;
+  overflow: hidden;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* ================================
+   HEADER
+================================ */
+.notification-dropdown .dropdown-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.notification-dropdown .dropdown-header strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Actions */
+.notification-dropdown .dropdown-header div {
+  display: flex;
+  gap: 10px;
+}
+
+.notification-dropdown .dropdown-header a {
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: all 0.25s ease;
+}
+
+/* Mark all */
+.notification-dropdown .dropdown-header a.text-primary {
+  color: #1d4ed8;
+}
+.notification-dropdown .dropdown-header a.text-primary:hover {
+  background: #dbeafe;
+}
+
+/* Clear all */
+.notification-dropdown .dropdown-header a.text-danger {
+  color: #dc2626;
+}
+.notification-dropdown .dropdown-header a.text-danger:hover {
+  background: #fee2e2;
+}
+
+/* ================================
+   ITEM WRAPPER
+================================ */
+.notification-item {
+  padding: 6px 12px;
+}
+
+/* ================================
+   CLICKABLE ITEM
+================================ */
+.notification-item .dropdown-item {
+  border-radius: 18px;
+  padding: 12px 14px;
+  transition: all 0.25s ease;
+  position: relative;
+  background: transparent;
+}
+
+/* 🔵 PURE BLUE HOVER (NO DARK EDGES) */
+.notification-item .dropdown-item:hover {
+  background: #2563eb; /* clean blue */
+  transform: translateX(3px);
+}
+
+/* FORCE EVERYTHING INSIDE TO WHITE */
+.notification-item .dropdown-item:hover,
+.notification-item .dropdown-item:hover * {
+  color: #ffffff !important;
+}
+
+/* Remove any weird icon colors on hover */
+.notification-item .dropdown-item:hover i {
+  color: #ffffff !important;
+}
+
+/* ================================
+   UNREAD STATE
+================================ */
+.notification-item.unread .dropdown-item {
+  background: #f0f7ff;
+  border-left: 4px solid #2563eb;
+  padding-left: 16px;
+}
+
+/* On hover → same pure blue */
+.notification-item.unread .dropdown-item:hover {
+  background: #2563eb;
+  border-left-color: transparent;
+}
+
+/* ================================
+   UNREAD DOT
+================================ */
+.unread-dot {
+  width: 9px;
+  height: 9px;
+  background: #2563eb;
+  border-radius: 50%;
+  position: absolute;
+  left: 10px;
+  top: 20px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+/* Hide dot on hover (cleaner look) */
+.notification-item .dropdown-item:hover .unread-dot {
+  background: #ffffff;
+  box-shadow: none;
+}
+
+/* ================================
+   TEXT SYSTEM
+================================ */
+.notification-item .text-muted {
+  font-size: 12px;
+  color: #64748b !important;
+  transition: color 0.2s ease;
+}
+
+.notification-item .flex-grow-1 > div:nth-child(2) {
+  font-size: 14.5px;
+  color: #0f172a;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.notification-item small {
+  font-size: 11.5px;
+  color: #94a3b8 !important;
+}
+
+/* ================================
+   EMPTY STATE
+================================ */
+.notification-dropdown li.text-center {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* ================================
+   SCROLLBAR
+================================ */
+.notification-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-dropdown::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 10px;
+}
+
+
+

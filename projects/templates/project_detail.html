@@ -1,0 +1,20 @@
+{% for member in project.projectmember_set.all %}
+<tr>
+    <td>{{ member.user.username }}</td>
+    <td>
+        {% if request.user == project.owner %}
+        <form method="POST" action="{% url 'update_member_role' member.id %}">
+            {% csrf_token %}
+            <select name="role">
+                {% for value, label in member.ROLE_CHOICES %}
+                    <option value="{{ value }}" {% if member.role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Update</button>
+        </form>
+        {% else %}
+            {{ member.get_role_display }}
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}

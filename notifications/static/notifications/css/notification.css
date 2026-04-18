@@ -1,0 +1,55 @@
+/* ==================== NOTIFICATION DROPDOWN - MATCHING YOUR DARK THEME ==================== */
+
+.notification-card {
+    display: flex;
+    gap: 12px;
+    position: relative;
+    padding: 12px;
+    border-radius: 10px;
+    transition: 0.2s;
+}
+
+.notification-card:hover {
+    background: #1e40af;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.notification-card .icon {
+    font-size: 16px;
+    margin-top: 4px;
+}
+
+.notification-card .content {
+    flex: 1;
+}
+
+.notification-card .title {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.notification-card .message {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.notification-card:hover .message {
+    color: #e0e7ff;
+}
+
+.notification-card .time {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.unread-dot {
+    position: absolute;
+    left: 6px;
+    top: 18px;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+} 
+

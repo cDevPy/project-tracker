@@ -1,0 +1,50 @@
+{% load static %}
+
+<li class="nav-item dropdown">
+    <a class="nav-link position-relative" href="#" id="notificationDropdown" 
+       role="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-bell fs-5"></i>
+        
+        {% if unread_notifications_count > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifBadge">
+            {{ unread_notifications_count }}
+        </span>
+        {% endif %}
+    </a>
+    
+    <ul class="dropdown-menu dropdown-menu-end shadow-lg" style="width: 360px; max-height: 480px; overflow-y: auto;" aria-labelledby="notificationDropdown">
+        
+        <li class="dropdown-header d-flex justify-content-between align-items-center border-bottom pb-2">
+            <strong>Notifications</strong>
+            {% if unread_notifications_count > 0 %}
+            <a href="#" onclick="markAllAsRead()" class="text-primary small text-decoration-none">Mark all read</a>
+            {% endif %}
+        </li>
+
+        {% for notification in recent_notifications %}
+        <li class="notification-item" data-id="{{ notification.id }}">
+            <a class="dropdown-item d-flex align-items-start py-3" href="#">
+                
+                <!-- Blue Dot for Unread -->
+                {% if not notification.is_read %}
+                <span class="unread-dot"></span>
+                {% endif %}
+                
+                <div class="flex-shrink-0 me-3">
+                    <i class="bi bi-info-circle text-info fs-4"></i>
+                </div>
+                
+                <div class="flex-grow-1">
+                    <div class="small text-muted">{{ notification.get_type_display }}</div>
+                    <div class="mt-1">{{ notification.message }}</div>
+                    <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                </div>
+            </a>
+        </li>
+        {% empty %}
+        <li class="dropdown-item text-center text-muted py-4">
+            No notifications yet
+        </li>
+        {% endfor %}
+    </ul>
+</li>

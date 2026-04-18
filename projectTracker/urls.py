@@ -22,6 +22,8 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     # path('comments', include('comments.urls')),
     path('', include('home.urls')),
+    path('',include('projects.urls')),
+    path('notifications/',include('notifications.urls')),
     # path('projects', include('projects.urls')),
     # path('tasks', include('tasks.urls')),
 ]

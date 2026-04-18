@@ -21,6 +21,16 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.core.mail import EmailMessage
+from notifications.models import Notification
+# Import your models
+from projects.models import Invitation, ProjectMember   # ← Change 'projects' if your app name is different
+
 from datetime import timedelta
 import logging
 import random
@@ -40,29 +50,57 @@ def access(request):
     template_data['title'] = 'Account Access | SwyftTask'
     return render(request, 'accounts/access.html', {'template_data': template_data})
 
+
+
+
+
 def signup(request):
     template_data = {}
     template_data['title'] = 'Sign Up | Project Tracker'
 
     if request.method == "GET":
-        template_data['form'] = CustomUserCreationForm()
+        form = CustomUserCreationForm()
+        
+        # Pre-fill email if coming from invitation link
+        invite_token = request.GET.get('invite_token')
+        if invite_token:
+            try:
+                invitation = Invitation.objects.get(token=invite_token, status='pending')
+                if not invitation.is_expired():
+                    form = CustomUserCreationForm(initial={'email': invitation.email})
+            except Invitation.DoesNotExist:
+                pass
+                
+        template_data['form'] = form
         return render(request, "accounts/signup.html", {'template_data': template_data})
 
     elif request.method == "POST":
         form = CustomUserCreationForm(request.POST)
+        
         if form.is_valid():
             user = form.save(commit=False)
-            user.is_active = False  # require email activation
+            user.is_active = False
             user.save()
 
             request.session['activation_email'] = user.email
 
-            # Generate email activation link
+            # ====================== INVITATION HANDLING ======================
+            invite_token = request.session.pop('pending_invite_token', None)
+            if invite_token:
+                try:
+                    invitation = Invitation.objects.get(token=invite_token, status='pending')
+                    if not invitation.is_expired() and invitation.email.lower() == user.email.lower():
+                        # Store invitation ID to process after activation
+                        request.session['pending_invitation_id'] = str(invitation.id)
+                except Invitation.DoesNotExist:
+                    pass
+            # ====================== END INVITATION HANDLING ======================
+
+            # Generate activation link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             activation_link = request.build_absolute_uri(f"/accounts/activate/{uid}/{token}/")
 
-            # Email message
             message = f"""
 Hello {user.username},
 
@@ -75,7 +113,6 @@ Please click the link below to activate your account:
 If you didn’t create this account, ignore this message.
 """
 
-            # Send email using project name
             email = EmailMessage(
                 "Activate Your SwyftTask Account",
                 message,
@@ -84,28 +121,112 @@ If you didn’t create this account, ignore this message.
             )
             email.send()
 
-            messages.success(request, "Your account was created. Check your email to activate it.")
-            return redirect("accounts.check_email")
+            request.session['pending_system_notification'] = f"Account created! Check your email {user.email} to activate it."
+            return redirect("accounts.check_email")  
+
 
         template_data['form'] = form
         return render(request, "accounts/signup.html", {'template_data': template_data})
-    
+
+
+
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from django.contrib.auth import login
+
+from projects.models import Invitation, ProjectMember
+from notifications.models import Notification   # ← Add this
+
+
+
 
 def activate_account(request, uidb64, token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = CustomUser.objects.get(pk=uid)
-    except:
+    except Exception:
         user = None
 
     if user and default_token_generator.check_token(user, token):
         user.is_active = True
         user.save()
-        messages.success(request, "Your account has been activated successfully.")
-        return redirect("activation.success")
 
-    messages.error(request, "Activation link is invalid or has expired.")
-    return redirect("accounts.signup")    
+        login(request, user)
+
+        # Process pending invitation
+        invitation_id = request.session.pop('pending_invitation_id', None)
+
+        if invitation_id:
+            try:
+              
+                
+
+                invitation = Invitation.objects.get(id=invitation_id, status='pending')
+
+                if not invitation.is_expired() and invitation.email.lower() == user.email.lower():
+                    ProjectMember.objects.update_or_create(
+                        project=invitation.project,
+                        user=user,
+                        defaults={'role': invitation.role}
+                    )
+                    invitation.project.members.add(user)
+                    invitation.status = 'accepted'
+                    invitation.save()
+
+                    # Notify the new member
+                    Notification.objects.create(
+                        user=user,
+                        type='project_join',
+                        related_project=invitation.project,
+                        related_invitation=invitation,
+                        message=f"You have successfully joined {invitation.project.name} as {invitation.role}!",
+                        is_read=False
+                    )
+
+                    # Notify the owner
+                    Notification.objects.create(
+                        user=invitation.invited_by,
+                        type='invite_accepted',
+                        related_project=invitation.project,
+                        related_invitation=invitation,
+                        message=(
+                            f"{user.get_full_name() or user.username} "
+                            f"accepted your invitation and joined {invitation.project.name}!"
+                        ),
+                        is_read=False
+                    )
+
+                    # Store welcome toast data
+                    request.session['welcome_project_id'] = invitation.project.id
+                    request.session['welcome_project_name'] = invitation.project.name
+                    request.session['welcome_role'] = invitation.role
+
+                    request.session['play_notification_sound'] = True
+                    return redirect(f'/?project={invitation.project.id}')
+                
+
+            except Invitation.DoesNotExist:
+                pass
+
+
+        Notification.objects.create(
+            user=user,
+            type='system',
+            message="Your account has been activated successfully. Welcome to SwyftTask!",
+            is_read=False
+        )
+        request.session['play_notification_sound'] = True
+        return redirect("activation.success")   
+        
+
+
+    request.session['pending_system_notification'] = "Activation link is invalid or has expired. Please sign up again."
+    return redirect("accounts.signup")
+
+
 
 
 def check_email(request):
@@ -289,8 +410,14 @@ def userLogin(request):
             template_data['error'] = 'Your account is not activated. Check your email.'
             return render(request, 'accounts/login.html', {'template_data': template_data})
 
+        
         login(request, user)
+        next_url = request.GET.get('next') or request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
         return redirect('home.dashboard')
+
+
 
 def userLogout(request):
     logout(request)

@@ -648,3 +648,44 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log("SwyftTask is ready");
+
+
+
+
+
+
+// Original Update Notification Count
+function updateNotificationCount() {
+    fetch('/notifications/unread-count/')
+        .then(res => res.json())
+        .then(data => {
+            const badge = document.getElementById('notifBadge');
+
+            if (!badge) return;
+
+            if (data.count > 0) {
+                badge.style.display = 'inline-block';
+                badge.textContent = data.count;
+            } else {
+                badge.style.display = 'none';
+            }
+
+            // 🔥 GET CURRENT NOTIFICATION IDS FROM DOM
+            const items = document.querySelectorAll('.notification-item');
+            const currentIds = Array.from(items).map(item => item.dataset.id);
+
+            // 🔥 GET STORED IDS
+            const storedIds = JSON.parse(localStorage.getItem('notifIds') || '[]');
+
+            // 🔥 CHECK FOR NEW ONES
+            const hasNew = currentIds.some(id => !storedIds.includes(id));
+
+            if (storedIds.length > 0 && hasNew) {
+                console.log("🔥 ALERT TRIGGERED");
+                triggerNotificationAlert();
+            }
+
+            // SAVE CURRENT IDS
+            localStorage.setItem('notifIds', JSON.stringify(currentIds));
+        });
+}

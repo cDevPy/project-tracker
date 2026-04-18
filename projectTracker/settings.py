@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'home',
     'projects',
     'tasks',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -66,6 +67,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'notifications.context_processors.notifications_context',
             ],
         },
     },
@@ -130,10 +132,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Add the custom User model
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
-EMAIL_HOST = "smtp.gmail.com"
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = "swyfttask@gmail.com"
-EMAIL_HOST_PASSWORD = "igsr zpab gweo ohqc"
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL ="SwyftTask <noreply@swyfttask.com>"
-from_email ="SwyftTask <noreply@swyfttask.com>"
+
+EMAIL_HOST_USER = 'jasperkuale@gmail.com'
+EMAIL_HOST_PASSWORD = "eins sjby xqip rzbi"
+
+#DEFAULT_FROM_EMAIL = "SwyftTask <swyfttask@gmail.com>"

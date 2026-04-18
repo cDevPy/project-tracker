@@ -5950,3 +5950,446 @@ mark {
   padding: 2px 4px;
   border-radius: 3px;
 }
+
+/* ===============================
+   Notification Dropdown
+================================= */
+
+.notification-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 55px;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  z-index: 1000;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.dropdown-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notif-count-small {
+  font-size: 0.8rem;
+  color: #ff4d4f;
+  font-weight: 600;
+}
+
+.notification-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notification-item {
+  border-bottom: 1px solid #f3f3f3;
+}
+
+.notification-item.unread {
+  background: #f5faff;
+}
+
+.notification-item a {
+  display: block;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #333;
+}
+
+.notification-item:hover {
+  background: #f0f4ff;
+}
+
+.notif-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.notif-time {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.notif-empty {
+  padding: 30px;
+  text-align: center;
+  color: #888;
+}
+
+.notif-footer {
+  padding: 10px;
+  text-align: center;
+  border-top: 1px solid #eee;
+}
+
+.notif-footer a {
+  text-decoration: none;
+  color: #4a6cf7;
+  font-weight: 500;
+}
+
+
+/* MODAL STYLING */
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 20, 0.75);
+    backdrop-filter: blur(6px);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 9999;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+/* MODAL BOX */
+.modal-box {
+    width: 420px;
+    background: #1c1c28;
+    border-radius: 12px;
+    padding: 22px;
+
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    color: #fff;
+
+    animation: fadeIn 0.2s ease;
+}
+
+/* HEADER */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.modal-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.close-btn {
+    cursor: pointer;
+    font-size: 20px;
+    opacity: 0.7;
+}
+
+.close-btn:hover {
+    opacity: 1;
+}
+
+/* FORM */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #bcbccc;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+
+    border: 1px solid #2f2f45;
+    background: #11111a;
+    color: white;
+
+    outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: #4f8cff;
+}
+
+/* ACTIONS */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-cancel {
+    background: #2a2a3a;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+}
+
+.btn-cancel:hover {
+    background: #3a3a4a;
+}
+
+.btn-primary {
+    background: #3b82f6;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+
+/* ANIMATION */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* INVITATON MESSAGE */
+
+.message-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+}
+
+.alert {
+    background: #1e293b;
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.alert.success {
+    background: #16a34a;
+}
+
+.alert.error {
+    background: #dc2626;
+}
+
+.alert.warning {
+    background: #f59e0b;
+}
+
+
+
+
+/* ================================
+   DROPDOWN CONTAINER
+================================ */
+.notification-dropdown {
+  width: 370px;
+  border-radius: 20px;
+  padding: 8px 0;
+  background: #ffffff;
+  overflow: hidden;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* ================================
+   HEADER
+================================ */
+.notification-dropdown .dropdown-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.notification-dropdown .dropdown-header strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Actions */
+.notification-dropdown .dropdown-header div {
+  display: flex;
+  gap: 10px;
+}
+
+.notification-dropdown .dropdown-header a {
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 999px;
+  transition: all 0.25s ease;
+}
+
+/* Mark all */
+.notification-dropdown .dropdown-header a.text-primary {
+  color: #1d4ed8;
+}
+.notification-dropdown .dropdown-header a.text-primary:hover {
+  background: #dbeafe;
+}
+
+/* Clear all */
+.notification-dropdown .dropdown-header a.text-danger {
+  color: #dc2626;
+}
+.notification-dropdown .dropdown-header a.text-danger:hover {
+  background: #fee2e2;
+}
+
+/* ================================
+   ITEM WRAPPER
+================================ */
+.notification-item {
+  padding: 6px 12px;
+}
+
+/* ================================
+   CLICKABLE ITEM
+================================ */
+.notification-item .dropdown-item {
+  border-radius: 18px;
+  padding: 12px 14px;
+  transition: all 0.25s ease;
+  position: relative;
+  background: transparent;
+}
+
+/* 🔵 PURE BLUE HOVER (NO DARK EDGES) */
+.notification-item .dropdown-item:hover {
+  background: #2563eb;
+  transform: translateX(3px);
+}
+
+/* FORCE EVERYTHING INSIDE TO WHITE */
+.notification-item .dropdown-item:hover,
+.notification-item .dropdown-item:hover * {
+  color: #ffffff !important;
+}
+
+/* Remove any weird icon colors on hover */
+.notification-item .dropdown-item:hover i {
+  color: #ffffff !important;
+}
+
+/* ================================
+   UNREAD STATE
+================================ */
+.notification-item.unread .dropdown-item {
+  background: #f0f7ff;
+  border-left: 4px solid #2563eb;
+  padding-left: 22px; /* ✅ adjusted for dot spacing */
+}
+
+/* On hover → same pure blue */
+.notification-item.unread .dropdown-item:hover {
+  background: #2563eb;
+  border-left-color: transparent;
+}
+
+/* ================================
+   UNREAD DOT
+================================ */
+.unread-dot {
+  width: 9px;
+  height: 9px;
+  background: #2563eb;
+  border-radius: 50%;
+  position: absolute;
+
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+
+  box-shadow: 0 0 0 2px #ffffff;
+
+  /* ✨ subtle pulse */
+  animation: unreadPulse 1.8s infinite;
+}
+
+/* ================================
+   UNREAD DOT ANIMATION
+================================ */
+@keyframes unreadPulse {
+  0% {
+    transform: translateY(-50%) scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6);
+  }
+  70% {
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+  100% {
+    transform: translateY(-50%) scale(1);
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
+
+
+/* ✅ KEEP DOT BLUE ON HOVER (no more white) */
+.notification-item .dropdown-item:hover .unread-dot {
+  background: #2563eb;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+
+/* ================================
+   TEXT SYSTEM
+================================ */
+.notification-item .text-muted {
+  font-size: 12px;
+  color: #64748b !important;
+  transition: color 0.2s ease;
+}
+
+.notification-item .flex-grow-1 > div:nth-child(2) {
+  font-size: 14.5px;
+  color: #0f172a;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.notification-item small {
+  font-size: 11.5px;
+  color: #94a3b8 !important;
+}
+
+/* ================================
+   EMPTY STATE
+================================ */
+.notification-dropdown li.text-center {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* ================================
+   SCROLLBAR
+================================ */
+.notification-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-dropdown::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 10px;
+}
