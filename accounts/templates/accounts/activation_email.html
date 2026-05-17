@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Activate Your SwyftTask Account</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f0eef8; font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #c9c5f0;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#4F46E5; padding:36px 40px 28px; text-align:center;">
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 18px;">
+                <tr>
+                    <td style="vertical-align:middle;">
+                        <img src="{{ logo_url }}" alt="SwyftTask logo" width="32" height="32" style="display:block;" />
+                    </td>
+                  <td style="padding-left:10px; vertical-align:middle;">
+                    <span style="font-size:20px; font-weight:bold; color:#ffffff;">SwyftTask</span>
+                  </td>
+                </tr>
+              </table>
+              <div style="width:64px; height:64px; background:rgba(255,255,255,0.15); border-radius:50%; margin:0 auto 14px; line-height:64px; text-align:center;">
+                <span style="font-size:30px;">&#9993;</span>
+              </div>
+              <h1 style="color:#ffffff; font-size:22px; font-weight:bold; margin:0 0 6px;">Confirm your email</h1>
+              <p style="color:rgba(255,255,255,0.75); font-size:14px; margin:0;">You're almost in — one click away</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="color:#374151; font-size:15px; line-height:1.7; margin:0 0 8px;">
+                Hi <strong style="color:#1f1147;">{{ username }}</strong>,
+              </p>
+              <p style="color:#4B5563; font-size:15px; line-height:1.7; margin:0 0 28px;">
+                Thanks for signing up for <strong style="color:#4F46E5;">SwyftTask</strong>. To get started, please verify your email address by clicking the button below.
+              </p>
+
+              <!-- CTA Button -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                <tr>
+                  <td style="background:#4F46E5; border-radius:8px;">
+                    <a href="{{ activation_link }}"
+                       style="display:inline-block; padding:14px 36px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
+                      Activate my account &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr><td style="border-top:1px solid #E5E7EB;"></td></tr>
+              </table>
+
+              <!-- Account details strip -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F3FF; border-radius:8px; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="font-size:11px; font-weight:bold; color:#6D28D9; text-transform:uppercase; letter-spacing:0.6px; margin:0 0 10px;">Account details</p>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+                      <tr>
+                        <td style="color:#6B7280; padding:4px 0;">Username</td>
+                        <td style="color:#1F1147; font-weight:bold; text-align:right;">{{ username }}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#6B7280; padding:4px 0;">Email</td>
+                        <td style="color:#1F1147; font-weight:bold; text-align:right;">{{ email }}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback link -->
+              <p style="font-size:13px; color:#9CA3AF; line-height:1.6; margin:0;">
+                Button not working? You can click or Copy and paste this link into your browser:<br/>
+                <a href="{{ activation_link }}" style="color:#4F46E5; word-break:break-all;">{{ activation_link }}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#FAFAFA; border-top:1px solid #E5E7EB; padding:24px 40px; text-align:center;">
+              <p style="color:#9CA3AF; font-size:12px; margin:0 0 6px;">
+                This link expires in <strong style="color:#6B7280;">5mins</strong>.
+                If you didn't sign up, you can simply ignore this email.
+              </p>
+              <p style="color:#C4B5FD; font-size:12px; margin:0;">
+                &copy; 2025 SwyftTask &nbsp;&middot;&nbsp; All rights reserved
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -58,10 +58,12 @@ def send_project_invite(request, project_id):
         return redirect('home.dashboard')
 
 
-    # Prevent duplicate pending invites to same email for same project
+    
+# Prevent duplicate pending invites to same email for same project
     existing = Invitation.objects.filter(
         project=project, email__iexact=email, status='pending'
     ).first()
+
     if existing and not existing.is_expired():
         Notification.objects.create(
             user=request.user,
@@ -71,7 +73,10 @@ def send_project_invite(request, project_id):
         )
         request.session['play_notification_sound'] = True
         return redirect('home.dashboard')
-
+    elif existing and existing.is_expired():
+        existing.status = 'expired'
+        existing.save()
+    
     # Create invitation
     invitation = Invitation.objects.create(
         project=project,
@@ -86,15 +91,17 @@ def send_project_invite(request, project_id):
     )
 
     # Send email
+    logo_url = request.build_absolute_uri('/static/img/logo.png')
     context = {
         'project_name': project.name,
         'inviter_name': request.user.get_full_name() or request.user.username,
         'role': role,
         'accept_url': accept_url,
+        'logo_url': logo_url,
     }
     subject = f"You've been invited to join {project.name} on SwyftTask"
     html_message = render_to_string('project_invitation.html', context)
-    email_msg = EmailMultiAlternatives(subject, "", None, [email])
+    email_msg = EmailMultiAlternatives(subject, "", "SwyftTask <noreply@swyfttask.com>", [email])
     email_msg.attach_alternative(html_message, "text/html")
     try:
         email_msg.send(fail_silently=False)

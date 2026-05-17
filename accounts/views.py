@@ -28,6 +28,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import EmailMessage
 from notifications.models import Notification
+from django.template.loader import render_to_string
 # Import your models
 from projects.models import Invitation, ProjectMember   # ← Change 'projects' if your app name is different
 
@@ -45,10 +46,6 @@ logger = logging.getLogger(__name__)
 
 # Create your views here.
 
-def access(request):
-    template_data = {}
-    template_data['title'] = 'Account Access | SwyftTask'
-    return render(request, 'accounts/access.html', {'template_data': template_data})
 
 
 
@@ -101,25 +98,25 @@ def signup(request):
             token = default_token_generator.make_token(user)
             activation_link = request.build_absolute_uri(f"/accounts/activate/{uid}/{token}/")
 
-            message = f"""
-Hello {user.username},
+            logo_url = request.build_absolute_uri('/static/home/img/logo.png')
 
-Welcome to SwyftTask!
 
-Please click the link below to activate your account:
-
-{activation_link}
-
-If you didn’t create this account, ignore this message.
-"""
+            html_message = render_to_string('accounts/activation_email.html', {
+                'username': user.username,
+                'email' : user.email,
+                'activation_link': activation_link,
+                'logo_url':logo_url,
+            })
 
             email = EmailMessage(
                 "Activate Your SwyftTask Account",
-                message,
+                html_message,
                 "SwyftTask <noreply@swyfttask.com>",
                 [user.email],
             )
+            email.content_subtype = "html"  
             email.send()
+
 
             request.session['pending_system_notification'] = f"Account created! Check your email {user.email} to activate it."
             return redirect("accounts.check_email")  
@@ -269,22 +266,31 @@ def password_reset_request(request):
         pin = str(random.randint(1000, 9999))
         PasswordResetPIN.objects.create(user=user, pin=pin)
 
-        # Send PIN via email
-        subject = "Your Password Reset PIN"
-        message = f"Your 4-digit PIN is {pin}. It expires in {getattr(settings, 'PIN_EXPIRY_MINUTES', 10)} minutes."
-        send_mail(
-            subject,
-            message,
-            "noreply@yourapp.com",
+        # replace the send_mail block with:
+        expiry_minutes = getattr(settings, 'PIN_EXPIRY_MINUTES', 10)
+        logo_url = request.build_absolute_uri('/static/img/logo.png')
+
+        html_message = render_to_string('accounts/password_reset_email.html', {
+            'username': user.username,
+            'pin_digits': list(pin),        # splits "3742" into ['3','7','4','2']
+            'expiry_minutes': expiry_minutes,
+            'logo_url': logo_url,
+        })
+
+        msg = EmailMessage(
+            "Your Password Reset PIN",
+            html_message,
+            "SwyftTask <noreply@swyfttask.com>",
             [email],
-            fail_silently=False,
         )
+        msg.content_subtype = "html"
+        msg.send()
 
         # Save email in session for verification step
         request.session['reset_email'] = email
         request.session.modified = True
 
-        messages.success(request, "A 4-digit PIN has been sent to your email.")
+        request.session['pending_system_notification'] = f"A 4-digit PIN has been sent to {email}. Check your inbox."
         return redirect("password_reset_verify")
 
     # GET request - just show the form
@@ -353,7 +359,6 @@ def password_reset_verify(request):
 def password_reset_form(request):
     user_id = request.session.get('reset_user_id')
     if not user_id:
-        messages.error(request, "Session expired. Please start again.")
         return redirect("password_reset_request")
 
     user = User.objects.get(id=user_id)
@@ -361,12 +366,25 @@ def password_reset_form(request):
     if request.method == "POST":
         password1 = request.POST.get("password1")
         password2 = request.POST.get("password2")
+
         if not password1 or not password2:
-            messages.error(request, "Please enter both password fields.")
+            Notification.objects.create(
+                user=user,
+                type='system',
+                message="Please enter both password fields.",
+                is_read=False
+            )
+            request.session['play_notification_sound'] = True
             return redirect("password_reset_form")
 
         if password1 != password2:
-            messages.error(request, "Passwords do not match.")
+            Notification.objects.create(
+                user=user,
+                type='system',
+                message="Passwords do not match. Please try again.",
+                is_read=False
+            )
+            request.session['play_notification_sound'] = True
             return redirect("password_reset_form")
 
         user.set_password(password1)
@@ -376,13 +394,16 @@ def password_reset_form(request):
         request.session.pop('reset_user_id', None)
         request.session.pop('reset_email', None)
 
-        messages.success(request, "Your password has been reset successfully.")
+        Notification.objects.create(
+            user=user,
+            type='system',
+            message="Your password has been reset successfully. Welcome back!",
+            is_read=False
+        )
+        request.session['play_notification_sound'] = True
         return redirect("accounts.login")
 
     return render(request, "accounts/password_reset_form.html")
-
-
-
 
 def userLogin(request):
     template_data = {

@@ -1,27 +1,110 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Project Invitation</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Project Invitation</title>
 </head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px;">
-        <h2>You've been invited to join <strong>{{ project_name }}</strong></h2>
-        <p><strong>{{ inviter_name }}</strong> has invited you to join the project as a <strong>{{ role }}</strong>.</p>
-        
-        <a href="{{ accept_url }}" 
-           style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; 
-                  text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0;">
-            Accept Invitation
-        </a>
-        
-        <p style="margin-top: 30px; color: #555;">
-            Or copy this code and enter it manually: <strong>{{ token }}</strong>
-        </p>
-        
-        <p style="color: #666; font-size: 14px;">
-            This invitation will expire in 7 days.
-        </p>
-    </div>
+<body style="margin:0; padding:0; background-color:#f0eef8; font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #c9c5f0;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#4F46E5; padding:36px 40px 28px; text-align:center;">
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 18px;">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <img src="{{ logo_url }}" alt="SwyftTask logo" width="32" height="32" style="display:block;"/>
+                  </td>
+                  <td style="padding-left:10px; vertical-align:middle;">
+                    <span style="font-size:20px; font-weight:bold; color:#ffffff;">SwyftTask</span>
+                  </td>
+                </tr>
+              </table>
+              <div style="width:64px; height:64px; background:rgba(255,255,255,0.15); border-radius:50%; margin:0 auto 14px; line-height:64px; text-align:center; font-size:30px;">
+                &#128101;
+              </div>
+              <h1 style="color:#ffffff; font-size:22px; font-weight:bold; margin:0 0 6px;">You've been invited!</h1>
+              <p style="color:rgba(255,255,255,0.75); font-size:14px; margin:0;">Someone wants you on their team</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;">
+              <p style="color:#4B5563; font-size:15px; line-height:1.7; margin:0 0 24px;">
+                <strong style="color:#1f1147;">{{ inviter_name }}</strong> has invited you to join their project on <strong style="color:#4F46E5;">SwyftTask</strong>. Click the button below to accept and get started.
+              </p>
+
+              <!-- Invitation details strip -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5F3FF; border-radius:8px; margin-bottom:28px; border:1px solid #c9c5f0;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="font-size:11px; font-weight:bold; color:#6D28D9; text-transform:uppercase; letter-spacing:0.6px; margin:0 0 12px;">Invitation details</p>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+                      <tr>
+                        <td style="color:#6B7280; padding:5px 0;">Project</td>
+                        <td style="color:#1F1147; font-weight:bold; text-align:right;">{{ project_name }}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#6B7280; padding:5px 0;">Invited by</td>
+                        <td style="color:#1F1147; font-weight:bold; text-align:right;">{{ inviter_name }}</td>
+                      </tr>
+                      <tr>
+                        <td style="color:#6B7280; padding:5px 0;">Role</td>
+                        <td style="text-align:right;">
+                          <span style="background:#4F46E5; color:#ffffff; font-size:11px; font-weight:bold; padding:3px 10px; border-radius:20px;">{{ role }}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color:#6B7280; padding:5px 0;">Expires</td>
+                        <td style="color:#1F1147; font-weight:bold; text-align:right;">In 7 days</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                <tr>
+                  <td style="background:#4F46E5; border-radius:8px;">
+                    <a href="{{ accept_url }}" style="display:inline-block; padding:14px 36px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
+                      Accept invitation &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr><td style="border-top:1px solid #E5E7EB;"></td></tr>
+              </table>
+
+              <p style="font-size:13px; color:#9CA3AF; line-height:1.6; margin:0;">
+                If you weren't expecting this invitation or don't recognize <strong style="color:#6B7280;">{{ inviter_name }}</strong>, you can safely ignore this email — no account will be created.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#FAFAFA; border-top:1px solid #E5E7EB; padding:24px 40px; text-align:center;">
+              <p style="color:#9CA3AF; font-size:12px; margin:0 0 6px;">
+                This invitation expires in <strong style="color:#6B7280;">7 days</strong>.
+              </p>
+              <p style="color:#C4B5FD; font-size:12px; margin:0;">
+                &copy; 2025 SwyftTask &nbsp;&middot;&nbsp; All rights reserved
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
