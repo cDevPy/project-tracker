@@ -17,7 +17,7 @@
         <li><a href="{% url 'home.dashboard' %}">Dashboard</a></li>
         <li><a class="signIn" href="{% url 'accounts.logout' %}">Logout</a></li>
         {% else %}
-        <li><a class="signIn" href="{% url 'accounts.access' %}">Sign In</a></li>
+        <li><a class="signIn" href="{% url 'accounts.login' %}">Sign In</a></li>
         {% endif %}
       </ul>
     </nav>
